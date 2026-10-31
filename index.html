@@ -214,6 +214,37 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .plyrics .orig{font-size:19px}
 .tip{color:var(--muted);text-align:center;font-size:16px;margin:4px 0 8px}
 @media (max-width:480px){.topbar h2{font-size:21px}.dub{font-size:26px;min-height:68px}}
+/* animals */
+.room.animals .glow{background:#ffd166}
+.room.animals{box-shadow:0 10px 40px rgba(255,209,102,.18)}
+.acard{background:var(--card);border-radius:22px;padding:14px 8px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;border:2px solid transparent;transition:transform .12s,border-color .12s;position:relative}
+.acard:hover{border-color:rgba(255,255,255,.25)}
+.acard:active{transform:scale(.94)}
+.acard .em{font-size:56px;line-height:1.1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.4))}
+.acard b{font-size:17px;text-align:center}
+.acard small{color:var(--muted);font-size:14px}
+.aemoji{font-size:48px;line-height:1;flex:0 0 auto}
+#aFact{margin-top:16px}
+/* home rows + settings */
+.homerow{width:100%;max-width:760px;margin-top:22px;text-align:left}
+.homerow h4{margin:0 0 8px;font-size:18px;color:var(--muted);font-weight:600}
+.chips2{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}
+.chips2::-webkit-scrollbar{display:none}
+.chips2 button{flex:0 0 auto;display:flex;align-items:center;gap:8px;min-height:50px;padding:6px 14px 6px 8px;border-radius:26px;background:var(--card2);font-weight:600;font-size:16px}
+.chips2 img{width:34px;height:23px;border-radius:4px;object-fit:cover}
+.chips2 .e{font-size:24px}
+.settings{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:28px}
+.settings .toggle{font-size:15px;min-height:46px}
+.fav{min-width:56px;font-size:22px;padding:0 14px}
+.fav.on{background:rgba(255,107,157,.25);border-color:var(--pink)}
+/* global stop */
+.stopall{position:fixed;right:16px;bottom:16px;z-index:40;min-height:56px;padding:0 20px;border-radius:30px;background:#ff4d6d;color:#fff;font-weight:700;font-size:18px;box-shadow:0 10px 30px rgba(255,77,109,.5);animation:pop .2s ease}
+.stopall[hidden]{display:none}
+/* two-tap remove on stage cards */
+.scard.armed .rm{width:auto;padding:0 10px;border-radius:17px;background:var(--pink);font-size:13px}
+/* calm mode + reduced motion: no twinkle, no bounce, no pulse */
+body.calm *,body.calm *::before,body.calm *::after{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -242,6 +273,18 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
       <p>Your own favourite songs, like Equestria Girls, from YouTube or your music files.</p>
       <span class="glow"></span>
     </button>
+    <button class="room animals" onclick="go('animals')">
+      <span class="big">🐧</span>
+      <h3>Animal Alley</h3>
+      <p>Baby chicks, ostriches, penguins and friends. Watch them, hear their songs, learn a fun fact.</p>
+      <span class="glow"></span>
+    </button>
+  </div>
+  <div class="homerow" id="favRow" hidden><h4>💖 Mihu's favourites</h4><div class="chips2" id="favChips"></div></div>
+  <div class="homerow" id="recentRow" hidden><h4>🕒 Recently played</h4><div class="chips2" id="recentChips"></div></div>
+  <div class="settings">
+    <button class="toggle" id="fxBtn" onclick="toggleFx()">🔔 Tap sounds</button>
+    <button class="toggle" id="calmBtn" onclick="toggleCalm()">🌙 Calm mode</button>
   </div>
 </section>
 
@@ -322,6 +365,7 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
     <button class="toggle" id="teachBtn" onclick="toggleOpt('teach',this)">🎓 Teach me</button>
     <button class="toggle" id="pinPlayBtn" hidden onclick="togglePinPlayer('splayer',pinKeyNow)">🌈 Mihu's song</button>
     <button class="toggle" id="findBtn" onclick="findSongs()">🔍 Songs from here</button>
+    <button class="toggle fav" id="favBtn" onclick="toggleFav()" aria-label="Favourite">🤍</button>
   </div>
   <div class="player" id="splayer"></div>
   <div class="dubbar" id="sdubbar">
@@ -351,6 +395,36 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
   </div>
   <div class="plyrics" id="plyrics"></div>
 </section>
+
+<!-- ANIMALS -->
+<section id="animals" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('home')" aria-label="Back">←</button>
+    <h2>Animal Alley <small>Tap an animal to meet it</small></h2>
+  </div>
+  <div id="animalSections"></div>
+</section>
+
+<!-- ONE ANIMAL -->
+<section id="animal" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('animals')" aria-label="Back">←</button>
+    <span class="aemoji" id="aEmoji">🐣</span>
+    <h2 id="aName">Chick <small id="aHindi"></small></h2>
+  </div>
+  <div class="controls">
+    <button class="dub" id="aWatchBtn" onclick="animalWatch()">▶ Watch</button>
+    <button class="toggle" onclick="animalSong()">🎵 Song</button>
+    <button class="toggle" onclick="animalSay()">🔊 Say it</button>
+    <button class="toggle fav" id="aFavBtn" onclick="toggleFav()" aria-label="Favourite">🤍</button>
+  </div>
+  <div class="dubhead" style="margin:0 0 10px"><span class="tag isdub" id="aNowTag" hidden></span><b id="aNowTitle"></b></div>
+  <div class="player" id="aplayer"></div>
+  <div class="results" id="aresults" data-player="aplayer"></div>
+  <div class="fact" id="aFact"></div>
+</section>
+
+<button class="stopall" id="stopAll" hidden onclick="stopEverything()">■ Stop</button>
 
 <!-- PIN PICKER -->
 <div class="modal" id="pinModal" onclick="if(event.target===this)closePin()">
@@ -679,6 +753,7 @@ function go(id){
   if(id!=='stage'){ stageNow=null; const db=document.getElementById('dubbar'); if(db) db.hidden=true; }
   document.querySelectorAll('.player').forEach(p=>p.innerHTML='');
   const sr=document.getElementById('sresults'); if(sr) sr.innerHTML='';
+  const ar=document.getElementById('aresults'); if(ar) ar.innerHTML='';
   window.scrollTo(0,0);
   syncToggles();
 }
@@ -757,6 +832,7 @@ function openSong(s){
   const place=s.state?s.state.name:(s.countryInfo?s.countryInfo[1]:s.country);
   document.getElementById('findBtn').textContent='🔍 Songs from '+place;
   renderPlaceDubs(s,null); dubSetTag({tagId:'sNowTag',titleId:'sNowTitle'},'','');
+  noteRecent(placeRef(s)); syncFav();
   const sings=!!(s.lines&&s.lines[0]&&s.lines[0].notes);
   document.getElementById('dubBtn').dataset.label=sings?'🎹 Instrumental':'🔊 Say hello'; setDub(false);
   document.getElementById('realBtn').textContent=sings?'▶ Play the song':'▶ Play a song from '+place;
@@ -935,8 +1011,11 @@ async function addFiles(files){
   }
   renderStage(); if(fileList[0]) playStage({type:'file',...fileList[0]});
 }
-async function removeStage(item){
-  if(!confirm('Remove "'+(item.title||item.name)+'" from the stage?')) return;
+async function removeStage(item,card){
+  if(card&&!card.classList.contains('armed')){ // first tap arms, second tap within 3 s removes (no pop-up dialogs)
+    card.classList.add('armed'); card.querySelector('.rm').textContent='Tap again to remove';
+    setTimeout(()=>{ card.classList.remove('armed'); const r=card.querySelector('.rm'); if(r) r.textContent='✕'; },3000); return;
+  }
   if(item.type==='yt'){ ytList=ytList.filter(x=>x.id!==item.id); saveYt(); }
   else { fileList=fileList.filter(x=>x.id!==item.id); try{ const db=await dbOpen(); db.transaction('files','readwrite').objectStore('files').delete(item.id); }catch(e){} }
   if(stageNow&&stageNow.id===item.id){ stageNow=null; document.getElementById('player').innerHTML=''; }
@@ -953,7 +1032,7 @@ function renderStage(){
       :`<div class="thumb emoji">🎵</div>`)
       +`<span>${esc(item.title||item.name)}</span><div class="rm" title="Remove">✕</div><div class="pin" title="Put on a flag or planet">📌</div>`;
     b.onclick=()=>playStage(item);
-    b.querySelector('.rm').onclick=e=>{e.stopPropagation(); removeStage(item);};
+    b.querySelector('.rm').onclick=e=>{e.stopPropagation(); removeStage(item,b);};
     b.querySelector('.pin').onclick=e=>{e.stopPropagation(); openPin(item);};
     g.appendChild(b);
   });
@@ -1236,6 +1315,127 @@ function showMiniMap(st){
 }
 try{ drawMap(document.getElementById('indiaMap')); }catch(e){ console.warn('map',e); }
 
+/* ========= ANIMAL ALLEY ========= */
+const ANIMALS=[
+ // birds (her favourites first)
+ {id:'chick',name:'Baby chick',hi:'चूज़ा (chooza)',e:'🐣',g:'Birds',q:'baby chicks hatching for kids',fact:'A chick talks to its mum from inside the egg before it hatches, and can walk within hours of being born.'},
+ {id:'hen',name:'Hen',hi:'मुर्गी (murgi)',e:'🐔',g:'Birds',fact:'A hen turns her eggs about 50 times a day so they stay warm all over.'},
+ {id:'ostrich',name:'Ostrich',hi:'शुतुरमुर्ग (shuturmurg)',e:'🪶',g:'Birds',fact:'The biggest bird in the world. It cannot fly, but it can run faster than a horse, and its eye is bigger than its brain!'},
+ {id:'penguin',name:'Penguin',hi:'पेंगुइन (penguin)',e:'🐧',g:'Birds',fact:'Penguins cannot fly in the air, but they fly underwater. Emperor penguin dads keep the egg warm on their feet all winter.'},
+ {id:'peacock',name:'Peacock',hi:'मोर (mor)',e:'🦚',g:'Birds',fact:'India’s national bird. Only the male has the huge shimmering tail, and he shakes it to show off.'},
+ {id:'parrot',name:'Parrot',hi:'तोता (tota)',e:'🦜',g:'Birds',fact:'Parrots can copy words and sounds, and some live for more than 60 years.'},
+ {id:'owl',name:'Owl',hi:'उल्लू (ullu)',e:'🦉',g:'Birds',fact:'An owl can turn its head almost all the way round, and its feathers make no sound when it flies.'},
+ {id:'flamingo',name:'Flamingo',hi:'राजहंस (rajhans)',e:'🦩',g:'Birds',fact:'Flamingos are born grey. They turn pink from the tiny shrimp and algae they eat.'},
+ {id:'duck',name:'Duckling',hi:'बत्तख का बच्चा (battakh ka bachcha)',e:'🦆',g:'Birds',q:'cute ducklings for kids',fact:'Ducklings follow the first moving thing they see, usually their mum. Their feathers are waterproof.'},
+ {id:'swan',name:'Swan',hi:'हंस (hans)',e:'🦢',g:'Birds',fact:'Swans stay with one partner for life, and baby swans are called cygnets.'},
+ {id:'eagle',name:'Eagle',hi:'बाज़ (baaz)',e:'🦅',g:'Birds',fact:'An eagle can spot a rabbit from more than a kilometre away.'},
+ {id:'hummingbird',name:'Hummingbird',hi:'हमिंगबर्ड (hummingbird)',e:'🐦',g:'Birds',fact:'The smallest bird. It beats its wings about 50 times a second and is the only bird that can fly backwards.'},
+ {id:'kiwi',name:'Kiwi bird',hi:'कीवी (kiwi)',e:'🥝',g:'Birds',q:'kiwi bird for kids',fact:'A fluffy bird from New Zealand that cannot fly and sniffs for food with nostrils at the tip of its beak.'},
+ {id:'toucan',name:'Toucan',hi:'टूकेन (toucan)',e:'🦤',g:'Birds',fact:'Its huge colourful beak is light and hollow, and it helps the toucan keep cool.'},
+ {id:'pelican',name:'Pelican',hi:'हवासील (hawasil)',e:'🐦‍⬛',g:'Birds',fact:'A pelican’s beak pouch can hold more than its tummy can.'},
+ {id:'woodpecker',name:'Woodpecker',hi:'कठफोड़वा (kathphodwa)',e:'🪵',g:'Birds',q:'woodpecker pecking for kids',fact:'A woodpecker taps up to 20 times a second, and its special skull means it never gets a headache.'},
+ {id:'sparrow',name:'Sparrow',hi:'गौरैया (gauraiya)',e:'🐦',g:'Birds',fact:'The little house sparrow lives near people all over the world, and it is the state bird of Delhi.'},
+ {id:'koel',name:'Koel',hi:'कोयल (koyal)',e:'🐦‍⬛',g:'Birds',q:'koel bird singing',fact:'The koel sings “ku-oo, ku-oo” in the Indian summer and sneaks its eggs into a crow’s nest.'},
+ {id:'kingfisher',name:'Kingfisher',hi:'किलकिला (kilkila)',e:'🐟',g:'Birds',q:'kingfisher diving for kids',fact:'It dives like an arrow to catch fish, and its feathers flash bright blue in the sun.'},
+ {id:'hornbill',name:'Hornbill',hi:'धनेश (dhanesh)',e:'🦤',g:'Birds',fact:'Hornbills have a huge curved beak, and the great hornbill is the state bird of Kerala and Arunachal Pradesh.'},
+ // other animals
+ {id:'elephant',name:'Baby elephant',hi:'हाथी का बच्चा (haathi ka bachcha)',e:'🐘',g:'Other animals',fact:'Baby elephants suck their trunks the way human babies suck their thumbs.'},
+ {id:'panda',name:'Panda',hi:'पांडा (panda)',e:'🐼',g:'Other animals',fact:'Pandas eat bamboo for about 12 hours a day, and a newborn panda is as small as a stick of butter.'},
+ {id:'kitten',name:'Kitten',hi:'बिल्ली का बच्चा (billi ka bachcha)',e:'🐱',g:'Other animals',fact:'Kittens are born with their eyes closed and open them after about a week.'},
+ {id:'puppy',name:'Puppy',hi:'पिल्ला (pilla)',e:'🐶',g:'Other animals',fact:'Puppies sleep up to 18 hours a day while they grow.'},
+ {id:'dolphin',name:'Dolphin',hi:'डॉल्फ़िन (dolphin)',e:'🐬',g:'Other animals',fact:'Dolphins talk with clicks and whistles, and each dolphin has its own name-whistle.'},
+ {id:'rabbit',name:'Bunny',hi:'खरगोश (khargosh)',e:'🐰',g:'Other animals',fact:'A rabbit’s teeth never stop growing, so it has to keep nibbling.'},
+ {id:'giraffe',name:'Giraffe',hi:'जिराफ़ (giraffe)',e:'🦒',g:'Other animals',fact:'The tallest animal. A newborn giraffe is already taller than a grown-up person.'},
+ {id:'lioncub',name:'Lion cub',hi:'शेर का बच्चा (sher ka bachcha)',e:'🦁',g:'Other animals',fact:'Lion cubs are born with spots that fade as they grow. In India, wild lions live only in Gir forest.'},
+ {id:'koala',name:'Koala',hi:'कोआला (koala)',e:'🐨',g:'Other animals',fact:'Koalas sleep up to 20 hours a day and smell like eucalyptus cough drops.'},
+ {id:'kid',name:'Baby goat',hi:'मेमना (memna)',e:'🐐',g:'Other animals',q:'baby goats jumping for kids',fact:'A baby goat is called a kid. It can stand up and jump within minutes of being born.'},
+];
+let animalNow=null;
+(function buildAnimals(){
+  const wrap=document.getElementById('animalSections');
+  ['Birds','Other animals'].forEach(gname=>{
+    const h=document.createElement('h3'); h.className='sub'; h.textContent=(gname==='Birds'?'🐣 ':'🐾 ')+gname; wrap.appendChild(h);
+    const grid=document.createElement('div'); grid.className='grid';
+    ANIMALS.filter(a=>a.g===gname).forEach(a=>{
+      const b=document.createElement('button'); b.className='acard';
+      b.innerHTML=`<span class="em">${a.e}</span><b>${a.name}</b><small>${a.hi.split(' (')[0]}</small>`;
+      b.onclick=()=>openAnimal(a); grid.appendChild(b);
+    });
+    wrap.appendChild(grid);
+  });
+})();
+function openAnimal(a){
+  animalNow=a; ac(); go('animal');
+  document.getElementById('aEmoji').textContent=a.e;
+  document.getElementById('aName').firstChild.textContent=a.name+' ';
+  document.getElementById('aHindi').textContent=a.hi;
+  document.getElementById('aFact').innerHTML=`<span class="dot" style="background:var(--accent)"></span><span><b>Did you know?</b> ${a.fact}</span>`;
+  dubSetTag({tagId:'aNowTag',titleId:'aNowTitle'},'','');
+  noteRecent({type:'animal',id:a.id,label:a.name,emoji:a.e}); syncFav();
+  sayNow(a.name,'en-US');
+}
+function animalCtx(kind){
+  const a=animalNow, key='animal:'+a.id+':'+kind;
+  return {playerId:'aplayer',resultsId:'aresults',tagId:'aNowTag',titleId:'aNowTitle',excludeId:null,
+    extra:'&relevanceLanguage=en&regionCode=IN',
+    stored:()=>placeDubs[key]||null, remember:(l,v)=>{ placeDubs[key]=v; savePlaceDubs(); }, forget:()=>{ delete placeDubs[key]; savePlaceDubs(); },
+    onLang:()=>{}, start:()=>kind==='watch'?animalWatch():animalSong()};
+}
+function animalWatch(){ const a=animalNow; if(!a) return; stopAll(); return dubRun(animalCtx('watch'),'orig',[a.q||(a.name+' video for kids'), 'cute '+a.name.replace(/^baby /i,'')+' for children']); }
+function animalSong(){ const a=animalNow; if(!a) return; stopAll(); return dubRun(animalCtx('song'),'orig',[a.name.replace(/^baby /i,'')+' song for kids', a.name.replace(/^baby /i,'')+' nursery rhyme']); }
+function animalSay(){ const a=animalNow; if(!a) return; if('speechSynthesis' in window) speechSynthesis.cancel(); speak(a.name,'en-US').then(()=>speak(a.hi.split(' (')[0],'hi-IN',a.hi.replace(/.*\(|\)/g,''))); }
+
+/* ========= FAVOURITES + RECENTS (home screen) ========= */
+let favs=[], recents=[];
+try{ favs=JSON.parse(localStorage.getItem('ma_favs')||'[]'); recents=JSON.parse(localStorage.getItem('ma_recents')||'[]'); }catch(e){}
+function saveHome(){ try{ localStorage.setItem('ma_favs',JSON.stringify(favs)); localStorage.setItem('ma_recents',JSON.stringify(recents)); }catch(e){} renderHome(); }
+function refKey(r){ return r.type+':'+(r.id||r.code); }
+function placeRef(s){
+  if(s.state) return {type:'state',id:s.state.id,label:s.state.name,img:cardSvg(s.state)};
+  if(s.countryInfo) return {type:'country',code:s.countryInfo[0],label:s.countryInfo[1],img:flagUrl(s.countryInfo[0],80)};
+  return {type:'song',id:s.id,label:s.country||s.title,img:flagUrl(s.code,80)};
+}
+function currentRef(){
+  if(document.getElementById('animal').classList.contains('active')&&animalNow) return {type:'animal',id:animalNow.id,label:animalNow.name,emoji:animalNow.e};
+  if(document.getElementById('song').classList.contains('active')&&songNow) return placeRef(songNow);
+  return null;
+}
+function noteRecent(r){ recents=[r,...recents.filter(x=>refKey(x)!==refKey(r))].slice(0,8); saveHome(); }
+function isFav(r){ return !!r&&favs.some(x=>refKey(x)===refKey(r)); }
+function toggleFav(){ const r=currentRef(); if(!r) return; if(isFav(r)) favs=favs.filter(x=>refKey(x)!==refKey(r)); else favs=[r,...favs].slice(0,20); saveHome(); syncFav(); }
+function syncFav(){ const r=currentRef(); ['favBtn','aFavBtn'].forEach(id=>{ const b=document.getElementById(id); if(b){ b.textContent=isFav(r)?'❤️':'🤍'; b.classList.toggle('on',isFav(r)); } }); }
+function openRef(r){
+  if(r.type==='animal'){ const a=ANIMALS.find(x=>x.id===r.id); if(a) openAnimal(a); }
+  else if(r.type==='state'){ const st=STATES.find(x=>x.id===r.id); if(st) openSong(stateAsSong(st)); }
+  else if(r.type==='country'){ const c=WORLD.find(x=>x[0]===r.code); if(!c) return; const sg=songFor(c[0]); openSong(sg?{...sg,countryInfo:c,note:'Capital: '+c[3]+' · '+c[2]+'. A traditional song, free for everyone to sing.'}:countryAsSong(c)); }
+  else if(r.type==='song'){ const sg=SONGS.find(x=>x.id===r.id); if(sg) openSong(sg); }
+}
+function renderHome(){
+  [['favRow','favChips',favs],['recentRow','recentChips',recents]].forEach(([rowId,chipsId,list])=>{
+    const row=document.getElementById(rowId), box=document.getElementById(chipsId); if(!row) return;
+    row.hidden=!list.length; box.innerHTML='';
+    list.forEach(r=>{ const b=document.createElement('button'); b.innerHTML=(r.emoji?`<span class="e">${r.emoji}</span>`:`<img src="${r.img}" alt="">`)+esc(r.label); b.onclick=()=>openRef(r); box.appendChild(b); });
+  });
+}
+renderHome();
+
+/* ========= COMFORT: tap sounds, calm mode, one Stop button ========= */
+let fxOn=true, calmOn=false;
+try{ fxOn=localStorage.getItem('ma_fx')!=='off'; calmOn=localStorage.getItem('ma_calm')==='on'; }catch(e){}
+function applyComfort(){
+  document.body.classList.toggle('calm',calmOn);
+  const f=document.getElementById('fxBtn'), c=document.getElementById('calmBtn');
+  if(f){ f.textContent='🔔 Tap sounds: '+(fxOn?'on':'off'); f.classList.toggle('on',fxOn); }
+  if(c){ c.textContent='🌙 Calm mode: '+(calmOn?'on':'off'); c.classList.toggle('on',calmOn); }
+}
+function toggleFx(){ fxOn=!fxOn; try{ localStorage.setItem('ma_fx',fxOn?'on':'off'); }catch(e){} applyComfort(); if(fxOn) blip(); }
+function toggleCalm(){ calmOn=!calmOn; try{ localStorage.setItem('ma_calm',calmOn?'on':'off'); }catch(e){} applyComfort(); }
+function blip(){ try{ const c=ac(); const o=c.createOscillator(), g=c.createGain(); o.type='sine'; o.frequency.value=880; g.gain.setValueAtTime(.0001,c.currentTime); g.gain.exponentialRampToValueAtTime(.06,c.currentTime+.01); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.09); o.connect(g); g.connect(master); o.start(); o.stop(c.currentTime+.1); }catch(e){} }
+document.addEventListener('pointerdown',e=>{ if(fxOn&&e.target.closest('button,.flag-card,.acard,.planet .ball,.scard,.rcard')) blip(); },{passive:true});
+applyComfort();
+function stopEverything(){ stopAll(); document.querySelectorAll('.player').forEach(p=>p.innerHTML=''); setDub(false); setPlanetDub(false); document.querySelectorAll('.tag').forEach(t=>{ if(t.id!=='nowTag') t.hidden=true; }); }
+setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
+
 /* ========= STARS ========= */
 (function(){
   const cv=document.getElementById('stars'), g=cv.getContext('2d');
@@ -1243,10 +1443,12 @@ try{ drawMap(document.getElementById('indiaMap')); }catch(e){ console.warn('map'
   function size(){ cv.width=innerWidth; cv.height=innerHeight;
     stars=Array.from({length:Math.min(220,Math.floor(innerWidth*innerHeight/6000))},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*1.6+.3,p:Math.random()*Math.PI*2,s:Math.random()*.02+.005})); }
   size(); addEventListener('resize',size);
+  const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
   function draw(){
     g.clearRect(0,0,cv.width,cv.height);
-    for(const s of stars){ s.p+=s.s; const a=.35+.65*(Math.sin(s.p)*.5+.5); g.globalAlpha=a; g.fillStyle='#fff'; g.beginPath(); g.arc(s.x,s.y,s.r,0,7); g.fill(); }
-    requestAnimationFrame(draw);
+    const calm=still||document.body.classList.contains('calm');
+    for(const s of stars){ if(!calm) s.p+=s.s; const a=calm?.6:.35+.65*(Math.sin(s.p)*.5+.5); g.globalAlpha=a; g.fillStyle='#fff'; g.beginPath(); g.arc(s.x,s.y,s.r,0,7); g.fill(); }
+    if(calm) setTimeout(()=>requestAnimationFrame(draw),1000); else requestAnimationFrame(draw);
   }
   draw();
 })();
