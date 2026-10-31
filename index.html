@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070a1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Music Alley">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Music Alley</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070a1f; --ink:#ffffff; --muted:rgba(255,255,255,.65);
+  --accent:#ffd166; --pink:#ff6b9d; --cyan:#4cc9f0; --purple:#9b5de5; --green:#06d6a0;
+  --card:rgba(255,255,255,.08); --card2:rgba(255,255,255,.14);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{font-family:Fredoka,"Segoe UI Rounded","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);overflow-x:hidden;user-select:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+.screen{position:relative;z-index:1;display:none;min-height:100vh;padding:16px 16px 48px;max-width:1000px;margin:0 auto;animation:pop .35s ease}
+.screen.active{display:block}
+@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;min-height:56px}
+.back{width:56px;height:56px;border-radius:50%;background:var(--card2);font-size:26px;display:grid;place-items:center;flex:0 0 auto}
+.back:active{transform:scale(.92)}
+.topbar h2{margin:0;font-size:clamp(22px,4vw,30px);font-weight:700;line-height:1.1}
+.topbar small{display:block;color:var(--muted);font-weight:400;font-size:15px;margin-top:2px}
+
+/* home */
+#home{display:none;text-align:center;padding-top:6vh}
+#home.active{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.logo{font-size:clamp(44px,10vw,88px);font-weight:700;margin:0;letter-spacing:.5px;
+  background:linear-gradient(90deg,var(--accent),var(--pink),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 18px rgba(255,107,157,.35))}
+.tag{margin:6px 0 36px;color:var(--muted);font-size:clamp(16px,2.6vw,22px)}
+.rooms{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;width:100%;max-width:760px}
+.room{position:relative;overflow:hidden;border-radius:32px;padding:28px 22px 24px;text-align:left;background:var(--card);border:2px solid rgba(255,255,255,.12);
+  transition:transform .15s,box-shadow .15s;min-height:190px}
+.room:hover{transform:translateY(-4px)}
+.room:active{transform:scale(.97)}
+.room .big{font-size:72px;line-height:1;display:block;margin-bottom:10px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.4))}
+.room h3{margin:0 0 6px;font-size:30px}
+.room p{margin:0;color:var(--muted);font-size:17px}
+.room.flags{box-shadow:0 10px 40px rgba(76,201,240,.18)}
+.room.planets{box-shadow:0 10px 40px rgba(155,93,229,.22)}
+.room .glow{position:absolute;right:-40px;bottom:-60px;width:200px;height:200px;border-radius:50%;filter:blur(50px);opacity:.5}
+.room.flags .glow{background:var(--cyan)}
+.room.planets .glow{background:var(--purple)}
+.room.stage .glow{background:var(--pink)}
+.room.stage{box-shadow:0 10px 40px rgba(255,107,157,.2)}
+
+/* stage (own songs) */
+.player{margin-bottom:16px}
+.player iframe,.player .filecard{width:100%;aspect-ratio:16/9;border:0;border-radius:22px;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.player .filecard{aspect-ratio:auto;background:var(--card2);padding:22px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.player .filecard b{font-size:24px;text-align:center}
+.player audio{width:100%}
+.stagegrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.scard{position:relative;background:var(--card);border-radius:22px;overflow:hidden;border:2px solid transparent;text-align:left;padding:0;transition:transform .12s}
+.scard:active{transform:scale(.95)}
+.scard.now{border-color:var(--pink)}
+.scard .thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:linear-gradient(135deg,var(--purple),var(--pink))}
+.scard .thumb.emoji{display:grid;place-items:center;font-size:46px}
+.scard span{display:block;padding:10px 12px 12px;font-size:16px;font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.scard .rm{position:absolute;top:6px;right:6px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.55);font-size:16px;display:grid;place-items:center}
+.addbox{margin-top:22px;background:var(--card);border-radius:24px;padding:16px}
+.addrow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.addrow input[type=url]{flex:1 1 220px;min-height:56px;border-radius:30px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;padding:0 18px;font:inherit;font-size:17px}
+.addrow input[type=url]:focus{outline:none;border-color:var(--accent)}
+.filebtn{display:inline-flex;align-items:center;position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inherit}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:30px 10px;font-size:18px}
+.scard .pin{position:absolute;top:6px;left:6px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.55);font-size:16px;display:grid;place-items:center}
+
+/* pins: her songs on flags and planets */
+.flag-card{position:relative}
+.badge{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.6);display:grid;place-items:center;font-size:16px;box-shadow:0 0 0 2px var(--pink)}
+.badge[hidden]{display:none}
+.planet .badge{top:-4px;right:-4px}
+.fact{flex-wrap:wrap}
+.fact .toggle{min-height:48px;font-size:16px}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(3,5,20,.82);display:none;align-items:flex-end;justify-content:center;padding:12px}
+.modal.open{display:flex}
+.sheet{background:#141838;border-radius:28px;padding:18px;width:100%;max-width:720px;max-height:85vh;overflow:auto;border:2px solid rgba(255,255,255,.12);animation:pop .25s ease}
+.sheet h3{margin:0 0 4px;font-size:22px}
+.sheet h4{margin:14px 0 8px;color:var(--muted);font-weight:600}
+.pick{display:flex;flex-wrap:wrap;gap:10px}
+.pick button{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 8px;border-radius:30px;background:var(--card2);font-size:16px;font-weight:600;min-height:48px;border:2px solid transparent}
+.pick button.has{border-color:var(--pink);background:rgba(255,107,157,.2)}
+.pick img{width:40px;height:27px;border-radius:5px;object-fit:cover}
+.pick .pd{width:26px;height:26px;border-radius:50%;box-shadow:inset -6px -5px 10px rgba(0,0,0,.4)}
+.sheet .close{margin-top:16px;width:100%}
+
+/* flags grid */
+.sub{display:flex;align-items:center;gap:10px;font-size:24px;margin:26px 0 12px}
+/* India map */
+.mapwrap{position:relative;background:var(--card);border-radius:28px;padding:14px;margin-bottom:16px;display:flex;justify-content:center}
+.mapwrap svg{width:100%;max-width:520px;height:auto;display:block;overflow:visible}
+.st{stroke:#070a1f;stroke-width:.6;stroke-linejoin:round;cursor:pointer;transition:filter .15s,transform .15s;transform-box:fill-box;transform-origin:center}
+.st:hover,.st:focus{filter:brightness(1.25) drop-shadow(0 0 6px rgba(255,255,255,.6));transform:scale(1.03);outline:none}
+.st.ut{fill:#3b4160;cursor:default}
+.st.hl{filter:brightness(1.3) drop-shadow(0 0 8px rgba(255,255,255,.8));stroke:#fff;stroke-width:1.2}
+.st.dim{opacity:.35}
+.cap{fill:#fff;stroke:#070a1f;stroke-width:1;pointer-events:none}
+.capl{fill:#fff;font-weight:700;paint-order:stroke;stroke:#070a1f;stroke-width:3;pointer-events:none;font-family:inherit}
+.maptip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 14px;border-radius:20px;font-size:15px;pointer-events:none;white-space:nowrap}
+.minimap{display:grid;grid-template-columns:minmax(120px,200px) 1fr;gap:14px;align-items:center;background:var(--card);border-radius:22px;padding:12px 16px;margin-bottom:12px}
+.minimap[hidden]{display:none}
+.minimap svg{width:100%;height:auto;overflow:visible}
+.minimap .where{font-size:18px;line-height:1.4}
+.minimap .where b{font-size:22px;display:block}
+.sub img{height:22px;border-radius:4px}
+.flag-card small.local{font-size:15px;color:var(--ink);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.flag-card{background:var(--card);border-radius:22px;padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  border:2px solid transparent;transition:transform .12s,border-color .12s}
+.flag-card:hover{border-color:rgba(255,255,255,.25)}
+.flag-card:active{transform:scale(.94)}
+.flag-card img,.flag-card .code{width:100px;height:67px;object-fit:cover;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.45)}
+.flag-card .code{display:none;place-items:center;background:var(--card2);font-weight:700;font-size:24px;letter-spacing:2px}
+.flag-card.noimg img{display:none}.flag-card.noimg .code{display:grid}
+.flag-card b{font-size:18px}
+.flag-card small{color:var(--muted);font-size:13px;text-align:center;line-height:1.2}
+
+/* song screen */
+.songhead img{width:72px;height:48px;object-fit:cover;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:8px 0 18px}
+.dub{flex:1 1 220px;min-height:76px;border-radius:40px;font-size:30px;font-weight:700;color:#1a1033;
+  background:linear-gradient(135deg,var(--accent),var(--pink));box-shadow:0 10px 30px rgba(255,107,157,.4);transition:transform .12s}
+.dub:active{transform:scale(.96)}
+.dub.playing{background:linear-gradient(135deg,#ff8fab,#ff4d6d);color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 10px 30px rgba(255,77,109,.4)}50%{box-shadow:0 10px 44px rgba(255,77,109,.8)}}
+.toggle{min-height:56px;padding:0 18px;border-radius:30px;background:var(--card2);font-size:18px;font-weight:600;border:2px solid transparent}
+.toggle.on{border-color:var(--accent);background:rgba(255,209,102,.18)}
+.lyrics{display:flex;flex-direction:column;gap:10px}
+.line{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center;padding:14px 16px;border-radius:20px;background:var(--card);
+  border:2px solid transparent;transition:background .2s,border-color .2s,transform .2s}
+.line.now{background:rgba(255,209,102,.16);border-color:var(--accent);transform:scale(1.015)}
+.line .orig{font-size:clamp(20px,3.2vw,26px);font-weight:600;line-height:1.3}
+.line .roman{color:var(--muted);font-style:italic;font-size:16px}
+.line .en{color:var(--cyan);font-size:clamp(16px,2.6vw,20px);line-height:1.3}
+.line .en::before{content:"= ";color:var(--muted)}
+.line .txt{display:flex;flex-direction:column;gap:3px}
+.say{width:52px;height:52px;border-radius:50%;background:var(--card2);font-size:24px;display:grid;place-items:center}
+.say:active{transform:scale(.9)}
+.note{margin-top:18px;color:var(--muted);font-size:14px;text-align:center}
+
+/* planets */
+.space{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:22px 26px;padding:30px 6px 10px;min-height:220px}
+.planet{display:flex;flex-direction:column;align-items:center;gap:8px;position:relative}
+.planet .ball{border-radius:50%;position:relative;box-shadow:inset -14px -12px 26px rgba(0,0,0,.45),0 0 24px rgba(255,255,255,.08);
+  transition:transform .12s,box-shadow .12s;cursor:pointer}
+.planet .ball::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.55),transparent 42%)}
+.planet.ring .ball::before{content:"";position:absolute;left:-28%;right:-28%;top:38%;height:24%;border-radius:50%;
+  border:7px solid rgba(240,220,170,.75);border-top-color:transparent;transform:rotate(-16deg);pointer-events:none}
+.planet.bounce .ball{animation:bounce .5s ease}
+.planet.glow .ball{box-shadow:0 0 0 6px rgba(255,255,255,.35),0 0 46px 10px var(--c)}
+@keyframes bounce{0%{transform:scale(1)}30%{transform:scale(1.22) translateY(-10px)}60%{transform:scale(.95)}100%{transform:scale(1)}}
+.planet b{font-size:16px}
+.sun .ball{background:radial-gradient(circle,#fff6b7,#ffb703 55%,#fb8500);box-shadow:0 0 60px 18px rgba(255,183,3,.45)}
+.fact{background:var(--card);border-radius:22px;padding:16px 18px;margin:12px 0 18px;font-size:18px;line-height:1.4;min-height:62px;display:flex;gap:12px;align-items:center}
+.fact .dot{width:28px;height:28px;border-radius:50%;flex:0 0 auto;box-shadow:inset -6px -5px 10px rgba(0,0,0,.4)}
+.plyrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-top:12px}
+.plyrics .line{grid-template-columns:1fr}
+.plyrics .orig{font-size:19px}
+.tip{color:var(--muted);text-align:center;font-size:16px;margin:4px 0 8px}
+@media (max-width:480px){.topbar h2{font-size:21px}.dub{font-size:26px;min-height:68px}}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<!-- HOME -->
+<section id="home" class="screen active">
+  <h1 class="logo">Music Alley</h1>
+  <p class="tag">Mihu's music adventure around the world and across the stars</p>
+  <div class="rooms">
+    <button class="room flags" onclick="go('flags')">
+      <span class="big">🌍</span>
+      <h3>Flag Alley</h3>
+      <p>Tap a flag, press <b>Dub</b>, and sing songs from 13 countries, and explore every Indian state on the map, with the words in English too.</p>
+      <span class="glow"></span>
+    </button>
+    <button class="room planets" onclick="go('planets')">
+      <span class="big">🪐</span>
+      <h3>Planet Alley</h3>
+      <p>Every planet is an instrument. Tap them to play, and sing the planet song!</p>
+      <span class="glow"></span>
+    </button>
+    <button class="room stage" onclick="go('stage')">
+      <span class="big">🌈</span>
+      <h3>Mihu's Stage</h3>
+      <p>Your own favourite songs, like Equestria Girls, from YouTube or your music files.</p>
+      <span class="glow"></span>
+    </button>
+  </div>
+</section>
+
+<!-- STAGE (own songs) -->
+<section id="stage" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('home')" aria-label="Back">←</button>
+    <h2>Mihu's Stage <small>Your favourite songs, your way</small></h2>
+  </div>
+  <div class="player" id="player"></div>
+  <div class="grid stagegrid" id="stageGrid"></div>
+  <div class="addbox">
+    <div class="addrow">
+      <input id="ytUrl" type="url" placeholder="Paste a YouTube link here" inputmode="url">
+      <button class="toggle on" onclick="addYouTube()">＋ Add</button>
+    </div>
+    <div class="addrow">
+      <label class="toggle filebtn">🎵 Add a music file<input type="file" accept="audio/*" multiple onchange="addFiles(this.files)"></label>
+      <a class="toggle" href="https://www.youtube.com/results?search_query=equestria+girls+songs+official" target="_blank" rel="noopener">🔍 Find on YouTube</a>
+    </div>
+    <p class="note">Songs you add are kept on this device. Music files play without internet; YouTube songs need it.</p>
+  </div>
+</section>
+
+<!-- FLAGS -->
+<section id="flags" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('home')" aria-label="Back">←</button>
+    <h2>Flag Alley <small>Pick a country or a state and press Dub</small></h2>
+  </div>
+  <h3 class="sub">🌍 Countries</h3>
+  <div class="grid" id="flagGrid"></div>
+  <h3 class="sub"><img src="https://flagcdn.com/w40/in.png" alt=""> Indian states</h3>
+  <p class="tip" style="text-align:left;margin-top:-6px">Indian states don't have official flags, so each one has its own colourful card. Tap a state on the map or a card below.</p>
+  <div class="mapwrap"><svg id="indiaMap" role="img" aria-label="Map of India"></svg><div class="maptip" id="mapTip">Tap a state</div></div>
+  <div class="grid" id="stateGrid"></div>
+</section>
+
+<!-- SONG -->
+<section id="song" class="screen">
+  <div class="topbar songhead">
+    <button class="back" onclick="go('flags')" aria-label="Back">←</button>
+    <img id="songFlag" alt="">
+    <h2 id="songTitle">Song <small id="songCountry"></small></h2>
+  </div>
+  <div class="controls">
+    <button class="dub" id="dubBtn" onclick="toggleDub()">▶ Dub it!</button>
+    <button class="toggle" id="slowBtn" onclick="toggleOpt('slow',this)">🐢 Slow</button>
+    <button class="toggle" id="teachBtn" onclick="toggleOpt('teach',this)">🎓 Teach me</button>
+    <button class="toggle" id="pinPlayBtn" hidden onclick="togglePinPlayer('splayer',pinKeyNow)">🌈 Mihu's song</button>
+  </div>
+  <div class="player" id="splayer"></div>
+  <div class="minimap" id="miniMap" hidden></div>
+  <div class="lyrics" id="lyrics"></div>
+  <p class="note" id="songNote"></p>
+</section>
+
+<!-- PLANETS -->
+<section id="planets" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('home')" aria-label="Back">←</button>
+    <h2>Planet Alley <small>Tap a planet to play it</small></h2>
+  </div>
+  <div class="space" id="space"></div>
+  <div class="fact" id="fact"><span class="dot" style="background:#ffb703"></span><span>Tap the Sun or any planet to hear its sound and learn a space fact!</span></div>
+  <div class="player" id="pplayer"></div>
+  <div class="controls">
+    <button class="dub" id="planetDub" onclick="togglePlanetSong()">▶ Planet song</button>
+    <button class="toggle" id="pslowBtn" onclick="toggleOpt('slow',this)">🐢 Slow</button>
+  </div>
+  <div class="plyrics" id="plyrics"></div>
+</section>
+
+<!-- PIN PICKER -->
+<div class="modal" id="pinModal" onclick="if(event.target===this)closePin()">
+  <div class="sheet">
+    <h3 id="pinTitle">Put this song on…</h3>
+    <p class="note" style="margin:0;text-align:left">Tap to pin or unpin. A pinned flag or planet shows 🌈 and can play her song.</p>
+    <h4>A flag</h4><div class="pick" id="pickFlags"></div>
+    <h4>An Indian state</h4><div class="pick" id="pickStates"></div>
+    <h4>A planet</h4><div class="pick" id="pickPlanets"></div>
+    <button class="toggle on close" onclick="closePin()">Done</button>
+  </div>
+</div>
+
+<script src="india.js"></script>
+<script>
+/* ========= DATA: songs (all traditional / public domain) ========= */
+const SONGS = [
+ {id:'fr',code:'fr',country:'France',lang:'fr-FR',title:'Frère Jacques',inst:'musicbox',bpm:120,lines:[
+  {text:'Frère Jacques, Frère Jacques,',en:'Brother John, Brother John,',notes:'C4 D4 E4 C4 C4 D4 E4 C4'},
+  {text:'Dormez-vous ? Dormez-vous ?',en:'Are you sleeping? Are you sleeping?',notes:'E4 F4 G4:2 E4 F4 G4:2'},
+  {text:'Sonnez les matines, sonnez les matines,',en:'Ring the morning bells, ring the morning bells,',notes:'G4:.5 A4:.5 G4:.5 F4:.5 E4 C4 G4:.5 A4:.5 G4:.5 F4:.5 E4 C4'},
+  {text:'Ding, dang, dong. Ding, dang, dong.',en:'Ding, dang, dong. Ding, dang, dong.',notes:'C4 G3 C4:2 C4 G3 C4:2'}]},
+ {id:'de',code:'de',country:'Germany',lang:'de-DE',title:'Hänschen klein',inst:'reed',bpm:116,lines:[
+  {text:'Hänschen klein ging allein',en:'Little Hans went off alone',notes:'G4 E4 E4:2 F4 D4 D4:2'},
+  {text:'in die weite Welt hinein.',en:'into the big wide world.',notes:'C4 D4 E4 F4 G4 G4 G4:2'},
+  {text:'Stock und Hut steht ihm gut,',en:'Stick and hat look good on him,',notes:'G4 E4 E4:2 F4 D4 D4:2'},
+  {text:'ist gar wohlgemut.',en:'he is as happy as can be.',notes:'C4 E4 G4 G4 C4:4'}]},
+ {id:'es',code:'es',country:'Spain',lang:'es-ES',title:'Cumpleaños feliz',inst:'pluck',bpm:100,lines:[
+  {text:'Cumpleaños feliz,',en:'Happy birthday to you,',notes:'G4:.5 G4:.5 A4 G4 C5 B4:2'},
+  {text:'cumpleaños feliz,',en:'happy birthday to you,',notes:'G4:.5 G4:.5 A4 G4 D5 C5:2'},
+  {text:'te deseamos todos,',en:'we all wish you',notes:'G4:.5 G4:.5 G5 E5 C5 B4 A4'},
+  {text:'cumpleaños feliz.',en:'a very happy birthday.',notes:'F5:.5 F5:.5 E5 C5 D5 C5:2'}]},
+ {id:'mx',code:'mx',country:'Mexico',lang:'es-MX',title:'La Cucaracha',inst:'horn',bpm:126,lines:[
+  {text:'La cucaracha, la cucaracha,',en:'The little cockroach, the little cockroach,',notes:'C4:.5 C4:.5 C4:.5 F4:1.5 A4:1.5 C4:.5 C4:.5 C4:.5 F4:1.5 A4:1.5'},
+  {text:'ya no puede caminar,',en:'cannot walk around anymore,',notes:'F4:.5 F4:.5 E4:.5 E4:.5 D4:.5 D4:.5 C4:2'},
+  {text:'porque no tiene, porque le falta',en:'because it is missing, because it lost',notes:'C4:.5 C4:.5 C4:.5 E4:1.5 G4:1.5 C4:.5 C4:.5 C4:.5 E4:1.5 G4:1.5'},
+  {text:'las dos patitas de atrás.',en:'its two little back legs.',notes:'A4:.5 A4:.5 G4:.5 G4:.5 E4:.5 E4:.5 F4:2'}]},
+ {id:'it',code:'it',country:'Italy',lang:'it-IT',title:'Giro giro tondo',inst:'pluck',bpm:150,lines:[
+  {text:'Giro giro tondo,',en:'Round and round we go,',notes:'G4 E4 G4 E4 A4 G4'},
+  {text:'casca il mondo,',en:'the world falls down,',notes:'G4 E4 A4 G4'},
+  {text:'casca la terra,',en:'the earth falls down,',notes:'G4 G4 E4 A4 G4'},
+  {text:'tutti giù per terra!',en:'everybody down on the ground!',notes:'G4 G4 E4 E4 A4:.5 G4:.5 E4:2'}]},
+ {id:'sct',code:'gb-sct',country:'Scotland',lang:'en-GB',title:'Auld Lang Syne',inst:'pipes',bpm:92,lines:[
+  {text:'Should auld acquaintance be forgot,',en:'Should old friends be forgotten,',notes:'C4 F4:1.5 F4:.5 F4 A4 G4:1.5 F4:.5 G4 A4'},
+  {text:'and never brought to mind?',en:'and never thought of again?',notes:'F4:1.5 F4:.5 A4 C5 D5:3'},
+  {text:'Should auld acquaintance be forgot,',en:'Should old friends be forgotten,',notes:'D5 C5:1.5 A4:.5 A4 F4 G4:1.5 F4:.5 G4 A4'},
+  {text:'and auld lang syne?',en:'and the good old days?',notes:'F4:1.5 D4:.5 D4 C4 F4:3'}]},
+ {id:'ru',code:'ru',country:'Russia',lang:'ru-RU',title:'Коробейники (Korobeiniki)',inst:'pluck',bpm:144,lines:[
+  {text:'Ой, полным-полна моя коробушка,',roman:'Oy, polnym-polna moya korobushka,',en:'Oh, my pack is full right to the top,',notes:'E5 B4:.5 C5:.5 D5 C5:.5 B4:.5 A4 A4:.5 C5:.5 E5 D5:.5 C5:.5'},
+  {text:'есть и ситец и парча.',roman:"yest' i sitets i parcha.",en:'with cotton cloth and silk to swap.',notes:'B4:1.5 C5:.5 D5 E5 C5 A4 A4:2'},
+  {text:'Пожалей, душа-зазнобушка,',roman:'Pozhaley, dusha-zaznobushka,',en:'Take pity on me, my dear sweetheart,',notes:'R:.5 D5 F5:.5 A5 G5:.5 F5:.5 E5:1.5 C5:.5 E5 D5:.5 C5:.5'},
+  {text:'молодецкого плеча.',roman:'molodetskogo plecha.',en:'and this young fellow’s tired shoulder.',notes:'B4 B4:.5 C5:.5 D5 E5 C5 A4 A4:2'}]},
+ {id:'cn',code:'cn',country:'China',lang:'zh-CN',title:'茉莉花 (Mo Li Hua)',inst:'musicbox',bpm:96,lines:[
+  {text:'好一朵美丽的茉莉花',roman:'Hǎo yī duǒ měi lì de mò lì huā',en:'What a beautiful jasmine flower,',notes:'E4:.5 E4:.5 G4:.5 A4:.5 C5:.5 C5:.5 A4 G4:.5 G4:.5 A4:.5 G4:1.5'},
+  {text:'好一朵美丽的茉莉花',roman:'Hǎo yī duǒ měi lì de mò lì huā',en:'what a beautiful jasmine flower,',notes:'E4:.5 E4:.5 G4:.5 A4:.5 C5:.5 C5:.5 A4 G4:.5 G4:.5 A4:.5 G4:1.5'},
+  {text:'芬芳美丽满枝桠',roman:'Fēn fāng měi lì mǎn zhī yā',en:'sweet and lovely, filling every branch,',notes:'G4 G4 G4 E4:.5 G4:.5 A4 A4 G4:2'},
+  {text:'又香又白人人夸',roman:'Yòu xiāng yòu bái rén rén kuā',en:'so fragrant and white, everyone loves it.',notes:'E4 D4:.5 E4:.5 G4 E4:.5 D4:.5 C4 C4:.5 D4:.5 C4:2'}]},
+ {id:'jp',code:'jp',country:'Japan',lang:'ja-JP',title:'さくら さくら (Sakura)',inst:'koto',bpm:84,lines:[
+  {text:'さくら さくら',roman:'Sakura, sakura',en:'Cherry blossoms, cherry blossoms,',notes:'A4 A4 B4:2 A4 A4 B4:2'},
+  {text:'やよいの空は',roman:'yayoi no sora wa',en:'across the springtime sky,',notes:'A4 B4 C5 B4 A4 B4:.5 A4:.5 F4:2'},
+  {text:'見わたす限り',roman:'miwatasu kagiri',en:'as far as you can see.',notes:'A4 B4 C5 B4 A4 B4:.5 A4:.5 F4:2'},
+  {text:'いざや いざや 見にゆかん',roman:'izaya, izaya, mi ni yukan',en:'Come on, come on, let’s go and see!',notes:'A4 A4 B4:2 A4 A4 B4:2 A4 A4 F4 E4:3'}]},
+ {id:'kr',code:'kr',country:'South Korea',lang:'ko-KR',title:'아리랑 (Arirang)',inst:'koto',bpm:96,lines:[
+  {text:'아리랑 아리랑 아라리요',roman:'Arirang, arirang, arariyo',en:'Arirang, arirang, arariyo,',notes:'F4:2 G4 A4:2 G4 A4:1.5 G4:.5 F4 D4:2 F4'},
+  {text:'아리랑 고개로 넘어간다',roman:'Arirang gogaero neomeoganda',en:'I am walking over Arirang hill.',notes:'F4:2 G4 A4:1.5 G4:.5 F4 D4 F4 G4 F4:3'},
+  {text:'나를 버리고 가시는 님은',roman:'Nareul beorigo gasineun nimeun',en:'If you go away and leave me behind,',notes:'C5:2 C5 D5:1.5 C5:.5 A4 C5:1.5 A4:.5 G4 F4:3'},
+  {text:'십리도 못가서 발병난다',roman:'Simnido motgaseo balbyeongnanda',en:'your feet will hurt before you get far!',notes:'F4:2 G4 A4:1.5 G4:.5 F4 D4 F4 G4 F4:3'}]},
+ {id:'in',code:'in',country:'India',lang:'hi-IN',title:'जन गण मन (Jana Gana Mana)',inst:'sitar',bpm:76,lines:[
+  {text:'जन गण मन अधिनायक जय हे',roman:'Jana gana mana adhinayaka jaya he',en:'You are the ruler of the hearts of all the people,',notes:'C4:.5 C4:.5 D4:.5 E4:.5 E4:.5 E4:.5 E4:.5 E4:.5 E4:.5 E4:.5 D4:.5 E4:.5 F4'},
+  {text:'भारत भाग्य विधाता',roman:'Bharata bhagya vidhata',en:'you shape the future of India.',notes:'E4:.5 E4:.5 E4:.5 D4:.5 D4:.5 D4:.5 C4:.5 D4:1.5'},
+  {text:'पंजाब सिंधु गुजरात मराठा',roman:'Punjaba Sindhu Gujarata Maratha',en:'Punjab, Sindh, Gujarat and Maratha,',notes:'G4:.5 G4:.5 G4:.5 G4:.5 G4:.5 G4:.5 G4:.5 G4:.5 F4:.5 G4:.5 A4'},
+  {text:'द्राविड़ उत्कल बंग',roman:'Dravida Utkala Banga',en:'Dravida, Odisha and Bengal.',notes:'A4:.5 A4:.5 A4:.5 G4:.5 G4:.5 G4:.5 F4:.5 G4:1.5'}]},
+ {id:'us',code:'us',country:'United States',lang:'en-US',title:'Yankee Doodle',inst:'banjo',bpm:104,lines:[
+  {text:'Yankee Doodle went to town, a-riding on a pony,',en:'A country boy rode into town on his little pony,',notes:'C4:.5 C4:.5 D4:.5 E4:.5 C4:.5 E4:.5 D4:.5 G3:.5 C4:.5 C4:.5 D4:.5 E4:.5 C4 B3'},
+  {text:'stuck a feather in his cap and called it macaroni.',en:'he put a feather in his hat and called it high fashion.',notes:'C4:.5 C4:.5 D4:.5 E4:.5 F4:.5 E4:.5 D4:.5 C4:.5 B3:.5 G3:.5 A3:.5 B3:.5 C4 C4'},
+  {text:'Yankee Doodle, keep it up, Yankee Doodle dandy,',en:'Keep it going, Yankee Doodle, you fancy fellow,',notes:'A3:.75 B3:.25 A3:.5 G3:.5 A3:.5 B3:.5 C4 G3:.75 A3:.25 G3:.5 F3:.5 E3 G3'},
+  {text:'mind the music and the step, and with the girls be handy.',en:'follow the music, keep in step, and dance with everybody.',notes:'A3:.75 B3:.25 A3:.5 G3:.5 A3:.5 B3:.5 C4:.5 A3:.5 G3:.5 C4:.5 B3:.5 D4:.5 C4 C4'}]},
+ {id:'gh',code:'gh',country:'Ghana',lang:'en-US',title:'Kye Kye Kule',inst:'marimba',bpm:120,note:'A call-and-response game: the leader sings, everyone copies and does the action!',lines:[
+  {text:'Kye kye kule! (Kye kye kule!)',en:'Hands on your head! (everyone: hands on your head!)',notes:'G4:.5 G4:.5 E4:.5 E4 R:.5 G4:.5 G4:.5 E4:.5 E4 R:.5'},
+  {text:'Kye kye kofi nsa! (Kye kye kofi nsa!)',en:'Hands on your shoulders! (echo)',notes:'G4:.5 G4:.5 E4:.5 G4:.5 E4 R:.5 G4:.5 G4:.5 E4:.5 G4:.5 E4 R:.5'},
+  {text:'Kofi sa langa! (Kofi sa langa!)',en:'Hands on your waist! (echo)',notes:'G4:.5 E4:.5 G4:.5 G4:.5 E4 R:.5 G4:.5 E4:.5 G4:.5 G4:.5 E4 R:.5'},
+  {text:'Kaka shi langa! (Kaka shi langa!)',en:'Hands on your knees! (echo)',notes:'G4:.5 E4:.5 G4:.5 G4:.5 E4 R:.5 G4:.5 E4:.5 G4:.5 G4:.5 E4 R:.5'},
+  {text:'Kum adende! (Kum adende!)',en:'Hands on your ankles! (echo)',notes:'G4:.5 E4:.5 G4:.5 E4 R:.5 G4:.5 E4:.5 G4:.5 E4 R:.5'},
+  {text:'Kum adende, hey!',en:'Hands on your ankles... and JUMP!',notes:'G4:.5 E4:.5 G4:.5 E4 R:.5 C5:1.5'}]},
+];
+
+/* ========= DATA: Indian states (greetings + public-domain song lines, spoken) ========= */
+const STATES = [
+ {id:'ap',name:'Andhra Pradesh',local:'ఆంధ్రప్రదేశ్',lang:'te-IN',cap:'Amaravati',emoji:'🦌',c:['#ffb703','#fb8500'],fact:'Famous for spicy food, the Tirupati temple and the Telugu language, called the Italian of the East.',lines:[
+  {text:'నమస్కారం',roman:'Namaskāram',en:'Hello'},{text:'మీరు ఎలా ఉన్నారు?',roman:'Mīru elā unnāru?',en:'How are you?'}]},
+ {id:'ar',name:'Arunachal Pradesh',local:'अरुणाचल प्रदेश',lang:'hi-IN',cap:'Itanagar',emoji:'🌄',c:['#f72585','#7209b7'],fact:'The land of the rising sun: it is the first place in India to see the sunrise every morning.',lines:[
+  {text:'नमस्ते',roman:'Namaste',en:'Hello'},{text:'आप कैसे हैं?',roman:'Aap kaise hain?',en:'How are you?'}]},
+ {id:'as',name:'Assam',local:'অসম',lang:'as-IN',cap:'Dispur',emoji:'🦏',c:['#2a9d8f','#264653'],fact:'Famous for tea gardens and the one-horned rhinos of Kaziranga National Park.',lines:[
+  {text:'নমস্কাৰ',roman:'Nomoskar',en:'Hello'},{text:'ও মোৰ আপোনাৰ দেশ',roman:'O mur apunar dex',en:'O my beloved land (the Assam state song)'}]},
+ {id:'br',name:'Bihar',local:'बिहार',lang:'hi-IN',cap:'Patna',emoji:'🌳',c:['#80b918','#2b9348'],fact:'Buddha found enlightenment under a tree in Bodh Gaya, and the world’s first big university, Nalanda, was here.',lines:[
+  {text:'प्रणाम',roman:'Pranaam',en:'Respectful hello'},{text:'का हाल बा?',roman:'Ka haal ba?',en:'How are you? (in Bhojpuri)'}]},
+ {id:'cg',name:'Chhattisgarh',local:'छत्तीसगढ़',lang:'hi-IN',cap:'Raipur',emoji:'🐃',c:['#e9c46a','#e76f51'],fact:'Called the rice bowl of India, with giant waterfalls like Chitrakote, the Niagara of India.',lines:[
+  {text:'जोहार',roman:'Johar',en:'Hello (a tribal greeting)'},{text:'नमस्ते',roman:'Namaste',en:'Hello'}]},
+ {id:'ga',name:'Goa',local:'गोंय',lang:'kok-IN',cap:'Panaji',emoji:'🏖️',c:['#00b4d8','#0077b6'],fact:'India’s smallest state, famous for beaches, coconut trees and a colourful carnival.',lines:[
+  {text:'देव बरो दीस दिवं',roman:'Dev boro dis divum',en:'Good day (in Konkani)'}]},
+ {id:'gj',name:'Gujarat',local:'ગુજરાત',lang:'gu-IN',cap:'Gandhinagar',emoji:'🦁',c:['#f77f00','#d62828'],fact:'The only place in the world with wild Asiatic lions, in Gir forest. Mahatma Gandhi was born here.',lines:[
+  {text:'કેમ છો?',roman:'Kem chho?',en:'How are you?'},{text:'જય જય ગરવી ગુજરાત',roman:'Jay jay garvi Gujarat',en:'Victory to proud Gujarat (a poem by Narmad)'}]},
+ {id:'hr',name:'Haryana',local:'हरियाणा',lang:'hi-IN',cap:'Chandigarh',emoji:'🐂',c:['#ffd166','#06d6a0'],fact:'The land of wrestlers and farmers. Kurukshetra, from the Mahabharata, is here.',lines:[
+  {text:'राम राम',roman:'Ram Ram',en:'Hello (in Haryanvi)'}]},
+ {id:'hp',name:'Himachal Pradesh',local:'हिमाचल प्रदेश',lang:'hi-IN',cap:'Shimla',emoji:'🏔️',c:['#90e0ef','#0096c7'],fact:'The land of snow: apple orchards, pine forests and the high Himalayas.',lines:[
+  {text:'नमस्ते',roman:'Namaste',en:'Hello'},{text:'बहुत सुंदर',roman:'Bahut sundar',en:'Very beautiful'}]},
+ {id:'jh',name:'Jharkhand',local:'झारखंड',lang:'hi-IN',cap:'Ranchi',emoji:'🐘',c:['#52b788','#1b4332'],fact:'The land of forests, waterfalls and elephants. Cricketer MS Dhoni comes from Ranchi.',lines:[
+  {text:'जोहार',roman:'Johar',en:'Hello'}]},
+ {id:'ka',name:'Karnataka',local:'ಕರ್ನಾಟಕ',lang:'kn-IN',cap:'Bengaluru',emoji:'🐘',c:['#ffba08','#e85d04'],fact:'Bengaluru is India’s tech city, and the Mysuru palace lights up with a hundred thousand bulbs.',lines:[
+  {text:'ನಮಸ್ಕಾರ',roman:'Namaskāra',en:'Hello'},{text:'ಹೇಗಿದ್ದೀರಾ?',roman:'Hēgiddīrā?',en:'How are you?'}]},
+ {id:'kl',name:'Kerala',local:'കേരളം',lang:'ml-IN',cap:'Thiruvananthapuram',emoji:'🥥',c:['#40916c','#95d5b2'],fact:'God’s own country: backwaters, coconut trees, elephants and snake-boat races.',lines:[
+  {text:'നമസ്കാരം',roman:'Namaskāram',en:'Hello'},{text:'ഓമനത്തിങ്കൾ കിടാവോ',roman:'Omanathinkal kidavo',en:'Is this sweet baby the little moon? (a lullaby from 1813)'}]},
+ {id:'mp',name:'Madhya Pradesh',local:'मध्य प्रदेश',lang:'hi-IN',cap:'Bhopal',emoji:'🐅',c:['#f4a261','#9c6644'],fact:'The heart of India and the tiger state. Kanha, the jungle that inspired The Jungle Book, is here.',lines:[
+  {text:'नमस्ते',roman:'Namaste',en:'Hello'}]},
+ {id:'mh',name:'Maharashtra',local:'महाराष्ट्र',lang:'mr-IN',cap:'Mumbai',emoji:'🐿️',c:['#ff7b00','#ffbe0b'],fact:'Mumbai is home to Bollywood, and Chhatrapati Shivaji’s forts stand on the hills.',lines:[
+  {text:'नमस्कार',roman:'Namaskār',en:'Hello'},{text:'तुम्ही कसे आहात?',roman:'Tumhī kase āhāt?',en:'How are you?'}]},
+ {id:'mn',name:'Manipur',local:'ꯃꯅꯤꯄꯨꯔ',lang:'mni-IN',cap:'Imphal',emoji:'🦌',c:['#c77dff','#5a189a'],fact:'Home of Loktak Lake with its floating islands, and the dancing sangai deer.',lines:[
+  {text:'খুরুমজরি',roman:'Khurumjari',en:'Hello (in Meitei)'}]},
+ {id:'ml',name:'Meghalaya',local:'Meghalaya',lang:'en-IN',cap:'Shillong',emoji:'☁️',c:['#8ecae6','#219ebc'],fact:'The home of the clouds: the wettest place on Earth, with living bridges grown from tree roots.',lines:[
+  {text:'Khublei',roman:'Khublei',en:'Hello, and thank you (in Khasi)'}]},
+ {id:'mz',name:'Mizoram',local:'Mizoram',lang:'en-IN',cap:'Aizawl',emoji:'🎋',c:['#06d6a0','#118ab2'],fact:'Rolling blue hills and bamboo forests, where almost everyone can read and write.',lines:[
+  {text:'Chibai',roman:'Chibai',en:'Hello (in Mizo)'}]},
+ {id:'nl',name:'Nagaland',local:'Nagaland',lang:'en-IN',cap:'Kohima',emoji:'🐦',c:['#ef476f','#ffd166'],fact:'Sixteen tribes, colourful costumes, and the famous Hornbill Festival every December.',lines:[
+  {text:'Kuknalim',roman:'Kuknalim',en:'Victory to the land (a Naga greeting)'}]},
+ {id:'od',name:'Odisha',local:'ଓଡ଼ିଶା',lang:'or-IN',cap:'Bhubaneswar',emoji:'🛕',c:['#f9c74f','#f3722c'],fact:'Home of the Jagannath Rath Yatra, the Konark Sun Temple and the graceful Odissi dance.',lines:[
+  {text:'ନମସ୍କାର',roman:'Namaskār',en:'Hello'},{text:'ବନ୍ଦେ ଉତ୍କଳ ଜନନୀ',roman:'Bande Utkala Janani',en:'I salute you, Mother Utkala (the Odisha state song)'}]},
+ {id:'pb',name:'Punjab',local:'ਪੰਜਾਬ',lang:'pa-IN',cap:'Chandigarh',emoji:'🌾',c:['#ffb703','#ff006e'],fact:'The land of five rivers, bhangra dancing and the Golden Temple in Amritsar.',lines:[
+  {text:'ਸਤ ਸ੍ਰੀ ਅਕਾਲ',roman:'Sat Sri Akal',en:'Hello'},{text:'ਕੀ ਹਾਲ ਹੈ?',roman:'Kī hāl hai?',en:'How are you?'}]},
+ {id:'rj',name:'Rajasthan',local:'राजस्थान',lang:'hi-IN',cap:'Jaipur',emoji:'🐪',c:['#e76f51','#ffb4a2'],fact:'The land of kings: deserts, camels, huge forts and the pink city of Jaipur.',lines:[
+  {text:'खम्मा घणी',roman:'Khamma Ghani',en:'Hello (in Rajasthani)'},{text:'केसरिया बालम, आवो नी पधारो म्हारे देस',roman:'Kesariya balam, aavo ni padharo mhare des',en:'My saffron-robed beloved, come, be welcome to my land (a folk song)'}]},
+ {id:'sk',name:'Sikkim',local:'सिक्किम',lang:'ne-IN',cap:'Gangtok',emoji:'🐼',c:['#b5179e','#3a0ca3'],fact:'Home of Kangchenjunga, the third highest mountain, and red pandas. All its farms are organic.',lines:[
+  {text:'नमस्ते',roman:'Namaste',en:'Hello (in Nepali)'},{text:'तपाईंलाई कस्तो छ?',roman:'Tapāīnlāī kasto chha?',en:'How are you?'}]},
+ {id:'tn',name:'Tamil Nadu',local:'தமிழ்நாடு',lang:'ta-IN',cap:'Chennai',emoji:'🛕',c:['#d00000','#ffba08'],fact:'Giant temples, Bharatanatyam dance and Tamil, one of the oldest languages in the world.',lines:[
+  {text:'வணக்கம்',roman:'Vaṇakkam',en:'Hello'},{text:'நீராரும் கடலுடுத்த நிலமடந்தைக் கெழிலொழுகும்',roman:'Neerarum kadaludutha nilamadanthai kezhilozhugum',en:'Like the beautiful face of Mother Earth, dressed in the sea (the Tamil state song)'}]},
+ {id:'tg',name:'Telangana',local:'తెలంగాణ',lang:'te-IN',cap:'Hyderabad',emoji:'🌼',c:['#ff5d8f','#ffb3c6'],fact:'Hyderabad’s Charminar and biryani are famous, and the Bathukamma flower festival fills the streets with colour.',lines:[
+  {text:'నమస్కారం',roman:'Namaskāram',en:'Hello'},{text:'బాగున్నారా?',roman:'Bāgunnārā?',en:'Are you well?'}]},
+ {id:'tr',name:'Tripura',local:'ত্রিপুরা',lang:'bn-IN',cap:'Agartala',emoji:'🐒',c:['#70e000','#008000'],fact:'A green, hilly state with the Ujjayanta Palace and the giant rock carvings of Unakoti.',lines:[
+  {text:'নমস্কার',roman:'Nomoshkar',en:'Hello (in Bengali)'},{text:'Khulumkha',roman:'Khulumkha',en:'Hello (in Kokborok)'}]},
+ {id:'up',name:'Uttar Pradesh',local:'उत्तर प्रदेश',lang:'hi-IN',cap:'Lucknow',emoji:'🕌',c:['#ffffff','#9d4edd'],fact:'The Taj Mahal is here, and so are Varanasi and Ayodhya, two of the oldest cities in the world.',lines:[
+  {text:'नमस्ते',roman:'Namaste',en:'Hello'},{text:'आदाब',roman:'Aadaab',en:'A polite hello from Lucknow'}]},
+ {id:'uk',name:'Uttarakhand',local:'उत्तराखंड',lang:'hi-IN',cap:'Dehradun',emoji:'🌸',c:['#ff99c8','#a9def9'],fact:'The land of the gods: the river Ganga starts here, and the Valley of Flowers blooms every summer.',lines:[
+  {text:'नमस्कार',roman:'Namaskār',en:'Hello'}]},
+ {id:'wb',name:'West Bengal',local:'পশ্চিমবঙ্গ',lang:'bn-IN',cap:'Kolkata',emoji:'🐅',c:['#f48c06','#6a040f'],fact:'Home of the Royal Bengal tiger, Durga Puja, rosogolla sweets and the poet Tagore.',lines:[
+  {text:'নমস্কার',roman:'Nomoshkar',en:'Hello'},{text:'কেমন আছো?',roman:'Kemon achho?',en:'How are you?'},{text:'আমার সোনার বাংলা, আমি তোমায় ভালোবাসি',roman:'Amar shonar Bangla, ami tomay bhalobashi',en:'My golden Bengal, I love you (a song by Tagore)'}]},
+ {id:'dl',name:'Delhi',local:'दिल्ली',lang:'hi-IN',cap:'New Delhi',emoji:'🏛️',c:['#4cc9f0','#4361ee'],fact:'India’s capital city, with the Red Fort, India Gate and a busy Metro.',lines:[
+  {text:'नमस्ते',roman:'Namaste',en:'Hello'},{text:'आप कैसे हैं?',roman:'Aap kaise hain?',en:'How are you?'}]},
+];
+const CAPS={ap:[16.51,80.52],ar:[27.08,93.60],as:[26.14,91.79],br:[25.59,85.14],cg:[21.25,81.63],ga:[15.49,73.83],gj:[23.22,72.65],hr:[30.73,76.78],hp:[31.10,77.17],jh:[23.34,85.31],ka:[12.97,77.59],kl:[8.52,76.94],mp:[23.26,77.41],mh:[19.08,72.88],mn:[24.82,93.94],ml:[25.58,91.89],mz:[23.73,92.72],nl:[25.67,94.11],od:[20.30,85.82],pb:[30.73,76.78],rj:[26.91,75.79],sk:[27.33,88.61],tn:[13.08,80.27],tg:[17.39,78.49],tr:[23.83,91.28],up:[26.85,80.95],uk:[30.32,78.03],wb:[22.57,88.36],dl:[28.61,77.21]};
+const NAME2ID={'Andhra Pradesh':'ap','Arunachal Pradesh':'ar','Assam':'as','Bihar':'br','Chhattisgarh':'cg','Goa':'ga','Gujarat':'gj','Haryana':'hr','Himachal Pradesh':'hp','Jharkhand':'jh','Karnataka':'ka','Kerala':'kl','Madhya Pradesh':'mp','Maharashtra':'mh','Manipur':'mn','Meghalaya':'ml','Mizoram':'mz','Nagaland':'nl','Odisha':'od','Punjab':'pb','Rajasthan':'rj','Sikkim':'sk','Tamil Nadu':'tn','Telangana':'tg','Tripura':'tr','Uttar Pradesh':'up','Uttarakhand':'uk','West Bengal':'wb','Delhi':'dl'};
+function cardSvg(st){
+  const svg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 214'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${st.c[0]}'/><stop offset='1' stop-color='${st.c[1]}'/></linearGradient></defs><rect width='320' height='214' fill='url(#g)'/><circle cx='160' cy='107' r='78' fill='rgba(255,255,255,0.22)'/><text x='160' y='146' font-size='104' text-anchor='middle'>${st.emoji}</text></svg>`;
+  return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
+}
+
+/* ========= DATA: planets ========= */
+const PLANETS = [
+ {name:'Sun',sun:true,color:'#ffb703',size:120,note:'C3',inst:'pad',fact:'The Sun is a star! It is so big that more than a million Earths could fit inside it.'},
+ {name:'Mercury',color:'#b8b8b8',size:40,note:'C6',inst:'bell',fact:'Mercury is the smallest planet and the closest to the Sun. One year there is only 88 days!'},
+ {name:'Venus',color:'#e9c46a',size:62,note:'A5',inst:'reed',fact:'Venus is the hottest planet, even hotter than Mercury, because thick clouds trap the heat.'},
+ {name:'Earth',color:'#3a86ff',size:66,note:'G5',inst:'musicbox',fact:'Earth is our home! It is the only planet we know with oceans, animals and music.'},
+ {name:'Mars',color:'#e4572e',size:52,note:'E5',inst:'pluck',fact:'Mars is the red planet. It has the tallest volcano in the whole solar system, Olympus Mons.'},
+ {name:'Jupiter',color:'#d9a066',size:116,note:'C5',inst:'horn',fact:'Jupiter is the biggest planet. Its Great Red Spot is a giant storm bigger than Earth!'},
+ {name:'Saturn',color:'#f2d388',size:100,ring:true,note:'A4',inst:'marimba',fact:'Saturn has beautiful rings made of ice and rock. It is so light it would float in a bathtub!'},
+ {name:'Uranus',color:'#8ecae6',size:80,note:'G4',inst:'pad',fact:'Uranus spins on its side, like a rolling ball. It is a cold, blue-green ice giant.'},
+ {name:'Neptune',color:'#4361ee',size:78,note:'E4',inst:'bass',fact:'Neptune is the farthest planet and has the fastest winds, faster than any storm on Earth.'},
+];
+const PLANET_SONG = {id:'planets',lang:'en-US',title:'The Planet Song',inst:'musicbox',bpm:108,lines:[
+ {text:'Mercury and Venus bright,',glow:['Mercury','Venus'],notes:'C4 C4 G4 G4 A4 A4 G4:2'},
+ {text:'Earth and Mars spin through the night.',glow:['Earth','Mars'],notes:'F4 F4 E4 E4 D4 D4 C4:2'},
+ {text:'Jupiter is big and round,',glow:['Jupiter'],notes:'G4 G4 F4 F4 E4 E4 D4:2'},
+ {text:"Saturn's rings go round and round,",glow:['Saturn'],notes:'G4 G4 F4 F4 E4 E4 D4:2'},
+ {text:'Uranus and Neptune blue,',glow:['Uranus','Neptune'],notes:'C4 C4 G4 G4 A4 A4 G4:2'},
+ {text:'eight big planets wave to you!',glow:['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune','Sun'],notes:'F4 F4 E4 E4 D4 D4 C4:2'},
+]};
+
+/* ========= AUDIO ENGINE (Web Audio synth, no files needed) ========= */
+const INST = {
+  musicbox:{parts:[['sine',1,1],['sine',2,.35],['sine',3,.15]],a:.004,d:.9,s:0,r:.2,g:.45},
+  bell:{parts:[['sine',1,1],['sine',2.76,.3],['sine',5.4,.12]],a:.003,d:1.2,s:0,r:.3,g:.4},
+  pluck:{parts:[['triangle',1,1],['sine',2,.3]],a:.004,d:.5,s:.05,r:.15,g:.5,lp:2500},
+  koto:{parts:[['triangle',1,1],['sawtooth',1,.25],['sine',3,.12]],a:.003,d:.7,s:0,r:.2,g:.45,lp:2800},
+  banjo:{parts:[['square',1,.6],['triangle',2,.3]],a:.003,d:.3,s:0,r:.1,g:.35,lp:3000},
+  sitar:{parts:[['sawtooth',1,.8],['sawtooth',1.005,.5],['sine',2,.3]],a:.005,d:.9,s:.1,r:.3,g:.3,lp:2200,drone:'C3'},
+  reed:{parts:[['sawtooth',1,.7],['square',1.003,.3]],a:.06,d:.1,s:.75,r:.12,g:.22,lp:1500},
+  horn:{parts:[['square',1,.7],['sawtooth',1,.3]],a:.04,d:.1,s:.65,r:.1,g:.2,lp:1100},
+  pipes:{parts:[['sawtooth',1,.8],['sawtooth',2,.25]],a:.03,d:.05,s:.85,r:.08,g:.18,lp:1800,drone:'F3'},
+  marimba:{parts:[['sine',1,1],['sine',4,.25]],a:.002,d:.4,s:0,r:.15,g:.6},
+  pad:{parts:[['triangle',1,.7],['sine',.5,.4],['triangle',1.004,.4]],a:.15,d:.3,s:.7,r:.6,g:.3,lp:1200},
+  bass:{parts:[['triangle',1,1],['sine',.5,.6]],a:.02,d:.3,s:.6,r:.3,g:.5,lp:800},
+};
+let ctx=null, master=null;
+function ac(){
+  if(!ctx){
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const comp=ctx.createDynamicsCompressor();
+    comp.threshold.value=-18; comp.ratio.value=4;
+    master=ctx.createGain(); master.gain.value=.9;
+    master.connect(comp); comp.connect(ctx.destination);
+  }
+  if(ctx.state==='suspended') ctx.resume();
+  return ctx;
+}
+const NOTE_IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
+function noteFreq(name){
+  const m=/^([A-G][#b]?)(\d)$/.exec(name); if(!m) return null;
+  const midi=12*(parseInt(m[2])+1)+NOTE_IDX[m[1]];
+  return 440*Math.pow(2,(midi-69)/12);
+}
+function parseNotes(str){
+  return str.trim().split(/\s+/).map(tok=>{
+    const [n,b]=tok.split(':');
+    return {freq:n==='R'?null:noteFreq(n),beats:b?parseFloat(b):1};
+  });
+}
+function tone(freq,when,dur,inst,bus,vel=1){
+  const c=ac();
+  const out=c.createGain(); out.connect(bus||master);
+  let dest=out;
+  if(inst.lp){const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=inst.lp;f.Q.value=.6;f.connect(out);dest=f;}
+  const peak=inst.g*vel, sus=peak*inst.s;
+  const holdEnd = inst.s===0 ? when+inst.a+inst.d : Math.max(when+dur, when+inst.a+inst.d);
+  const g=out.gain;
+  g.setValueAtTime(0,when);
+  g.linearRampToValueAtTime(peak,when+inst.a);
+  g.linearRampToValueAtTime(sus,when+inst.a+inst.d);
+  if(inst.s!==0) g.setValueAtTime(sus,holdEnd);
+  g.linearRampToValueAtTime(0,holdEnd+inst.r);
+  const stopAt=holdEnd+inst.r+.05;
+  inst.parts.forEach(([type,mult,amt])=>{
+    const o=c.createOscillator(); o.type=type; o.frequency.value=freq*mult;
+    const og=c.createGain(); og.gain.value=amt;
+    o.connect(og); og.connect(dest); o.start(when); o.stop(stopAt);
+  });
+}
+function drone(noteName,bus){
+  const c=ac(); const f=noteFreq(noteName);
+  const g=c.createGain(); g.gain.setValueAtTime(0,c.currentTime); g.gain.linearRampToValueAtTime(.08,c.currentTime+.8);
+  const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=600;
+  g.connect(lp); lp.connect(bus);
+  [[f,'sawtooth'],[f*1.5,'triangle'],[f*1.002,'sawtooth']].forEach(([fr,t])=>{const o=c.createOscillator();o.type=t;o.frequency.value=fr;o.connect(g);o.start();});
+}
+
+/* ========= PLAYBACK ========= */
+const state={slow:false,teach:false};
+let current=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function stopAll(){
+  if(current){
+    current.cancel=true;
+    const b=current.bus, c=ac();
+    try{ b.gain.setTargetAtTime(0,c.currentTime,.04); setTimeout(()=>{try{b.disconnect()}catch(e){}},400); }catch(e){}
+    if(current.onEnd) current.onEnd();
+    current=null;
+  }
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+}
+async function playSong(song,{onLine,onEnd}={}){
+  stopAll();
+  const c=ac();
+  const bus=c.createGain(); bus.gain.value=1; bus.connect(master);
+  const run={bus,cancel:false,onEnd};
+  current=run;
+  const inst=INST[song.inst];
+  const beat=60/song.bpm*(state.slow?1.7:1);
+  if(inst.drone) drone(inst.drone,bus);
+  await sleep(inst.drone?500:60);
+  for(let i=0;i<song.lines.length;i++){
+    if(run.cancel) return;
+    const line=song.lines[i];
+    onLine&&onLine(i,line);
+    if(!line.notes){ // spoken line (Indian states): say it, then its meaning
+      await speak(line.text,song.lang,line.roman,state.slow?.65:.85); if(run.cancel) return;
+      if(line.en){ await sleep(200); await speak(line.en,'en-US'); if(run.cancel) return; }
+      await sleep(350); continue;
+    }
+    let t=c.currentTime+.06; const t0=t;
+    for(const n of parseNotes(line.notes)){
+      if(n.freq) tone(n.freq,t,n.beats*beat*.92,inst,bus);
+      t+=n.beats*beat;
+    }
+    await sleep((t-t0)*1000+140);
+    if(run.cancel) return;
+    if(state.teach){
+      await speak(line.text,song.lang,line.roman); if(run.cancel) return;
+      if(line.en){ await speak(line.en,'en-US'); if(run.cancel) return; }
+      await sleep(250);
+    }
+  }
+  await sleep(600);
+  if(run.cancel) return;
+  onLine&&onLine(-1);
+  current=null;
+  setTimeout(()=>{try{bus.disconnect()}catch(e){}},1500);
+  onEnd&&onEnd();
+}
+
+/* ========= SPEECH ========= */
+let voices=[];
+function loadVoices(){ if('speechSynthesis' in window) voices=speechSynthesis.getVoices(); }
+loadVoices(); if('speechSynthesis' in window) speechSynthesis.onvoiceschanged=loadVoices;
+function pickVoice(lang){
+  const base=lang.split('-')[0].toLowerCase();
+  return voices.find(v=>v.lang.replace('_','-').toLowerCase()===lang.toLowerCase())
+      || voices.find(v=>v.lang.toLowerCase().startsWith(base)) || null;
+}
+function speak(text,lang,fallback,rate=.85){
+  return new Promise(res=>{
+    if(!('speechSynthesis' in window)) return res();
+    let v=pickVoice(lang), say=text;
+    if(!v && fallback){ say=fallback; v=pickVoice('en-US'); }
+    const u=new SpeechSynthesisUtterance(say);
+    if(v) u.voice=v; u.lang=v?v.lang:lang; u.rate=rate; u.pitch=1.05;
+    let done=false; const fin=()=>{ if(!done){done=true;res();} };
+    u.onend=fin; u.onerror=fin; setTimeout(fin,15000);
+    speechSynthesis.speak(u);
+  });
+}
+function sayNow(text,lang,fallback){ if('speechSynthesis' in window) speechSynthesis.cancel(); speak(text,lang,fallback); }
+
+/* ========= UI: navigation ========= */
+function go(id){
+  stopAll();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id!=='stage'){ stageNow=null; }
+  document.querySelectorAll('.player').forEach(p=>p.innerHTML='');
+  window.scrollTo(0,0);
+  syncToggles();
+}
+function toggleOpt(key,btn){ state[key]=!state[key]; syncToggles(); ac(); }
+function syncToggles(){
+  document.getElementById('slowBtn').classList.toggle('on',state.slow);
+  document.getElementById('pslowBtn').classList.toggle('on',state.slow);
+  document.getElementById('teachBtn').classList.toggle('on',state.teach);
+}
+function flagUrl(code,w){ return `https://flagcdn.com/w${w}/${code}.png`; }
+
+/* ========= UI: flags ========= */
+const grid=document.getElementById('flagGrid');
+SONGS.forEach(s=>{
+  const b=document.createElement('button'); b.className='flag-card';
+  b.innerHTML=`<img src="${flagUrl(s.code,320)}" alt=""><span class="code">${s.code.toUpperCase().slice(0,3)}</span><b>${s.country}</b><small>${s.title}</small><span class="badge" hidden>🌈</span>`;
+  b.dataset.pin='flag:'+s.id;
+  b.querySelector('img').onerror=()=>b.classList.add('noimg');
+  b.onclick=()=>openSong(s);
+  grid.appendChild(b);
+});
+const sgrid=document.getElementById('stateGrid');
+STATES.forEach(st=>{
+  const b=document.createElement('button'); b.className='flag-card';
+  b.innerHTML=`<img src="${cardSvg(st)}" alt=""><b>${st.name}</b><small class="local">${st.local}</small><small>${st.cap}</small><span class="badge" hidden>🌈</span>`;
+  b.dataset.pin='state:'+st.id;
+  b.onclick=()=>openSong(stateAsSong(st));
+  sgrid.appendChild(b);
+});
+function stateAsSong(st){
+  return {id:st.id,state:st,pinKey:'state:'+st.id,lang:st.lang,title:st.name,country:st.local+' · capital: '+st.cap,
+    img:cardSvg(st),say:st.name+', India',note:st.fact,inst:'musicbox',bpm:100,lines:st.lines};
+}
+let songNow=null, pinKeyNow=null;
+function openSong(s){
+  songNow=s; ac();
+  go('song');
+  pinKeyNow=s.pinKey||('flag:'+s.id);
+  document.getElementById('pinPlayBtn').hidden=!pinOf(pinKeyNow);
+  document.getElementById('songFlag').src=s.img||flagUrl(s.code,160);
+  document.getElementById('songTitle').firstChild.textContent=s.title+' ';
+  document.getElementById('songCountry').textContent=s.country;
+  document.getElementById('songNote').textContent=s.note||'A traditional song, free for everyone to sing.';
+  document.getElementById('dubBtn').dataset.mode=s.state?'speak':'sing';
+  showMiniMap(s.state||null);
+  const ly=document.getElementById('lyrics'); ly.innerHTML='';
+  s.lines.forEach((l,i)=>{
+    const d=document.createElement('div'); d.className='line'; d.dataset.i=i;
+    d.innerHTML=`<div class="txt"><div class="orig">${l.text}</div>${l.roman?`<div class="roman">${l.roman}</div>`:''}<div class="en">${l.en}</div></div>
+      <button class="say" title="Say it" aria-label="Say it">🔊</button>`;
+    d.querySelector('.say').onclick=e=>{e.stopPropagation(); sayNow(l.text,s.lang,l.roman);};
+    d.onclick=()=>{ if(!current){ playLineOnly(s,i); } };
+    ly.appendChild(d);
+  });
+  setDub(false);
+  sayNow(s.say||(s.country+'. '+s.title.replace(/\(.*\)/,'')),'en-US');
+}
+function playLineOnly(s,i){
+  const one={...s,lines:[s.lines[i]]};
+  playSong(one,{onLine:k=>highlightLine(k<0?-1:i),onEnd:()=>setDub(false)});
+  setDub(true);
+}
+function highlightLine(i){
+  document.querySelectorAll('#lyrics .line').forEach(d=>d.classList.toggle('now',+d.dataset.i===i));
+  if(i>=0){ const el=document.querySelector(`#lyrics .line[data-i="${i}"]`); el&&el.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+function setDub(on){
+  const b=document.getElementById('dubBtn');
+  b.classList.toggle('playing',on); b.textContent=on?'■ Stop':'▶ Dub it!';
+  if(!on) highlightLine(-1);
+}
+function toggleDub(){
+  if(current){ stopAll(); setDub(false); return; }
+  setDub(true);
+  playSong(songNow,{onLine:highlightLine,onEnd:()=>setDub(false)});
+}
+
+/* ========= UI: planets ========= */
+const space=document.getElementById('space');
+PLANETS.forEach(p=>{
+  const d=document.createElement('div'); d.className='planet'+(p.ring?' ring':'')+(p.sun?' sun':''); d.dataset.name=p.name; d.style.setProperty('--c',p.color);
+  d.innerHTML=`<div class="ball" style="width:${p.size}px;height:${p.size}px;background:radial-gradient(circle at 35% 30%,${lighten(p.color)},${p.color} 60%,${darken(p.color)})"><span class="badge" hidden>🌈</span></div><b>${p.name}</b>`;
+  d.dataset.pin='planet:'+p.name;
+  const hit=()=>{
+    ac(); const c=ctx;
+    tone(noteFreq(p.note),c.currentTime,.7,INST[p.inst],null,1);
+    d.classList.remove('bounce'); void d.offsetWidth; d.classList.add('bounce');
+    const f=document.getElementById('fact');
+    const pin=pinOf('planet:'+p.name);
+    f.innerHTML=`<span class="dot" style="background:${p.color}"></span><span><b>${p.name}:</b> ${p.fact}</span>`
+      +(pin?`<button class="toggle" onclick="togglePinPlayer('pplayer','planet:${p.name}')">🌈 ${esc(pin.title)}</button>`:'');
+  };
+  d.querySelector('.ball').addEventListener('pointerdown',hit);
+  space.appendChild(d);
+});
+function lighten(hex){return mix(hex,'#ffffff',.45)}
+function darken(hex){return mix(hex,'#000000',.45)}
+function mix(a,b,t){
+  const pa=a.match(/\w\w/g).map(h=>parseInt(h,16)), pb=b.match(/\w\w/g).map(h=>parseInt(h,16));
+  return '#'+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,'0')).join('');
+}
+const pl=document.getElementById('plyrics');
+PLANET_SONG.lines.forEach((l,i)=>{
+  const d=document.createElement('div'); d.className='line'; d.dataset.i=i;
+  d.innerHTML=`<div class="txt"><div class="orig">${l.text}</div></div>`;
+  pl.appendChild(d);
+});
+function glowPlanets(i,line){
+  document.querySelectorAll('.planet').forEach(p=>p.classList.toggle('glow',!!line&&line.glow.includes(p.dataset.name)));
+  document.querySelectorAll('#plyrics .line').forEach(d=>d.classList.toggle('now',+d.dataset.i===i));
+}
+function setPlanetDub(on){
+  const b=document.getElementById('planetDub');
+  b.classList.toggle('playing',on); b.textContent=on?'■ Stop':'▶ Planet song';
+  if(!on) glowPlanets(-1,null);
+}
+function togglePlanetSong(){
+  if(current){ stopAll(); setPlanetDub(false); return; }
+  setPlanetDub(true);
+  playSong(PLANET_SONG,{onLine:glowPlanets,onEnd:()=>setPlanetDub(false)});
+}
+
+/* ========= STAGE: own songs (YouTube links in localStorage, files in IndexedDB) ========= */
+let ytList=[]; try{ ytList=JSON.parse(localStorage.getItem('ma_stage')||'[]'); }catch(e){ ytList=[]; }
+let fileList=[]; // {id,name,blob}
+let stageNow=null;
+function saveYt(){ try{ localStorage.setItem('ma_stage',JSON.stringify(ytList)); }catch(e){} }
+function ytId(url){
+  const m=/(?:youtu\.be\/|v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/.exec(url||''); return m?m[1]:null;
+}
+async function addYouTube(){
+  const inp=document.getElementById('ytUrl'); const id=ytId(inp.value.trim());
+  if(!id){ inp.style.borderColor='var(--pink)'; inp.placeholder='That does not look like a YouTube link'; inp.value=''; return; }
+  inp.style.borderColor=''; inp.value='';
+  const item={type:'yt',id,title:'YouTube song'};
+  ytList.unshift(item); saveYt(); renderStage(); playStage(item);
+  try{ const r=await fetch('https://noembed.com/embed?url=https://www.youtube.com/watch?v='+id); const j=await r.json(); if(j.title){ item.title=j.title; saveYt(); renderStage(); } }catch(e){}
+}
+function dbOpen(){
+  return new Promise((res,rej)=>{
+    if(!('indexedDB' in window)) return rej();
+    const q=indexedDB.open('musicalley',1);
+    q.onupgradeneeded=()=>q.result.createObjectStore('files',{keyPath:'id'});
+    q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error);
+  });
+}
+async function loadFiles(){
+  try{ const db=await dbOpen(); const tx=db.transaction('files'); const q=tx.objectStore('files').getAll();
+    fileList=await new Promise(r=>{q.onsuccess=()=>r(q.result||[]);q.onerror=()=>r([]);}); }catch(e){ fileList=[]; }
+  renderStage();
+}
+async function addFiles(files){
+  for(const f of Array.from(files||[])){
+    const item={id:'f'+Date.now()+Math.random().toString(36).slice(2,6),name:f.name.replace(/\.[^.]+$/,''),blob:f};
+    fileList.unshift(item);
+    try{ const db=await dbOpen(); db.transaction('files','readwrite').objectStore('files').put(item); }catch(e){}
+  }
+  renderStage(); if(fileList[0]) playStage({type:'file',...fileList[0]});
+}
+async function removeStage(item){
+  if(!confirm('Remove "'+(item.title||item.name)+'" from the stage?')) return;
+  if(item.type==='yt'){ ytList=ytList.filter(x=>x.id!==item.id); saveYt(); }
+  else { fileList=fileList.filter(x=>x.id!==item.id); try{ const db=await dbOpen(); db.transaction('files','readwrite').objectStore('files').delete(item.id); }catch(e){} }
+  if(stageNow&&stageNow.id===item.id){ stageNow=null; document.getElementById('player').innerHTML=''; }
+  renderStage();
+}
+function renderStage(){
+  const g=document.getElementById('stageGrid'); g.innerHTML='';
+  const all=[...ytList.map(x=>({type:'yt',...x})),...fileList.map(x=>({type:'file',...x}))];
+  if(!all.length){ g.innerHTML='<div class="empty">No songs yet. Paste a YouTube link or add a music file below. 🎤</div>'; return; }
+  all.forEach(item=>{
+    const b=document.createElement('button'); b.className='scard'+(stageNow&&stageNow.id===item.id?' now':'');
+    b.innerHTML=(item.type==='yt'
+      ?`<img class="thumb" src="https://i.ytimg.com/vi/${item.id}/hqdefault.jpg" alt="">`
+      :`<div class="thumb emoji">🎵</div>`)
+      +`<span>${esc(item.title||item.name)}</span><div class="rm" title="Remove">✕</div><div class="pin" title="Put on a flag or planet">📌</div>`;
+    b.onclick=()=>playStage(item);
+    b.querySelector('.rm').onclick=e=>{e.stopPropagation(); removeStage(item);};
+    b.querySelector('.pin').onclick=e=>{e.stopPropagation(); openPin(item);};
+    g.appendChild(b);
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function playerHtml(item){
+  if(item.type==='yt'){
+    return `<iframe src="https://www.youtube-nocookie.com/embed/${item.id}?autoplay=1&rel=0" title="${esc(item.title||'')}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+  }
+  const f=fileList.find(x=>x.id===item.id);
+  if(!f) return `<div class="filecard"><b>That music file is no longer on this device.</b></div>`;
+  return `<div class="filecard"><b>🎵 ${esc(f.name)}</b><audio controls autoplay src="${URL.createObjectURL(f.blob)}"></audio></div>`;
+}
+function playStage(item){
+  stopAll(); stageNow=item;
+  document.getElementById('player').innerHTML=playerHtml(item);
+  renderStage(); window.scrollTo({top:0,behavior:'smooth'});
+}
+loadFiles();
+
+/* ========= PINS: her songs on flags and planets ========= */
+let pins={}; try{ pins=JSON.parse(localStorage.getItem('ma_pins')||'{}'); }catch(e){ pins={}; }
+let pinItem=null;
+function savePins(){ try{ localStorage.setItem('ma_pins',JSON.stringify(pins)); }catch(e){} }
+function pinOf(key){ return pins[key]||null; }
+function openPin(item){
+  pinItem={type:item.type,id:item.id,title:item.title||item.name};
+  document.getElementById('pinTitle').textContent='Put "'+pinItem.title+'" on…';
+  renderPick();
+  document.getElementById('pinModal').classList.add('open');
+}
+function closePin(){ document.getElementById('pinModal').classList.remove('open'); refreshBadges(); }
+function togglePin(key){
+  if(pins[key]&&pins[key].id===pinItem.id) delete pins[key]; else pins[key]=pinItem;
+  savePins(); renderPick(); refreshBadges();
+}
+function renderPick(){
+  const f=document.getElementById('pickFlags'); f.innerHTML='';
+  SONGS.forEach(s=>{
+    const k='flag:'+s.id, has=pins[k]&&pins[k].id===pinItem.id, other=pins[k]&&!has;
+    const b=document.createElement('button'); b.className=has?'has':'';
+    b.innerHTML=`<img src="${flagUrl(s.code,80)}" alt="">${s.country}${has?' ✓':other?' 🌈':''}`;
+    b.onclick=()=>togglePin(k); f.appendChild(b);
+  });
+  const sg=document.getElementById('pickStates'); sg.innerHTML='';
+  STATES.forEach(st=>{
+    const k='state:'+st.id, has=pins[k]&&pins[k].id===pinItem.id, other=pins[k]&&!has;
+    const b=document.createElement('button'); b.className=has?'has':'';
+    b.innerHTML=`<img src="${cardSvg(st)}" alt="">${st.name}${has?' ✓':other?' 🌈':''}`;
+    b.onclick=()=>togglePin(k); sg.appendChild(b);
+  });
+  const p=document.getElementById('pickPlanets'); p.innerHTML='';
+  PLANETS.forEach(pl=>{
+    const k='planet:'+pl.name, has=pins[k]&&pins[k].id===pinItem.id, other=pins[k]&&!has;
+    const b=document.createElement('button'); b.className=has?'has':'';
+    b.innerHTML=`<span class="pd" style="background:${pl.color}"></span>${pl.name}${has?' ✓':other?' 🌈':''}`;
+    b.onclick=()=>togglePin(k); p.appendChild(b);
+  });
+}
+function refreshBadges(){
+  document.querySelectorAll('[data-pin]').forEach(el=>{
+    const badge=el.querySelector('.badge'); if(badge) badge.hidden=!pins[el.dataset.pin];
+  });
+  if(pinKeyNow) document.getElementById('pinPlayBtn').hidden=!pinOf(pinKeyNow);
+}
+function togglePinPlayer(containerId,key){
+  const c=document.getElementById(containerId);
+  if(c.innerHTML){ c.innerHTML=''; return; }
+  const item=pinOf(key); if(!item) return;
+  c.innerHTML=playerHtml(item);
+  c.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+refreshBadges();
+
+/* ========= INDIA MAP (outlines in india.js) ========= */
+const PROJ={lon0:68,lat1:37.6,k:10,c:Math.cos(22*Math.PI/180)};
+function px(lon,lat){ return [((lon-PROJ.lon0)*PROJ.c*PROJ.k).toFixed(1),((PROJ.lat1-lat)*PROJ.k).toFixed(1)]; }
+function geoPath(g){
+  const polys=g.type==='Polygon'?[g.coordinates]:g.coordinates; let d='';
+  for(const poly of polys) for(const ring of poly){
+    ring.forEach((p,i)=>{ const [x,y]=px(p[0],p[1]); d+=(i?'L':'M')+x+' '+y; }); d+='Z';
+  }
+  return d;
+}
+let MAP_PATHS=null;
+function mapPaths(){
+  if(MAP_PATHS) return MAP_PATHS;
+  if(typeof INDIA_GEO==='undefined') return [];
+  MAP_PATHS=INDIA_GEO.map(f=>({name:f.n,id:NAME2ID[f.n]||null,d:geoPath(f.g)}));
+  return MAP_PATHS;
+}
+function drawMap(svg,{highlight=null,interactive=true,label=false}={}){
+  const paths=mapPaths(); if(!paths.length){ svg.closest('.mapwrap,.minimap').hidden=true; return; }
+  svg.setAttribute('viewBox','0 0 280 320'); svg.innerHTML='';
+  const NS='http://www.w3.org/2000/svg';
+  for(const p of paths){
+    const el=document.createElementNS(NS,'path'); el.setAttribute('d',p.d);
+    const st=p.id&&STATES.find(s=>s.id===p.id);
+    const hl=highlight&&p.id===highlight;
+    el.setAttribute('class','st'+(st?'':' ut')+(highlight?(hl?' hl':' dim'):''));
+    const col=st?st.c[0]:'#3b4160';
+    el.style.fill=col; el.style.stroke=hl?'#fff':col; // same-colour stroke hides the district seams inside a state
+    if(p.name) { const t=document.createElementNS(NS,'title'); t.textContent=st?st.name+' · '+st.cap:p.name; el.appendChild(t); }
+    if(interactive){
+      el.setAttribute('tabindex','0');
+      const tip=document.getElementById('mapTip');
+      el.addEventListener('pointerenter',()=>{ tip.textContent=st?st.name+' · '+st.cap:p.name; });
+      el.addEventListener('click',()=>{ if(st) openSong(stateAsSong(st)); else sayNow(p.name+', a union territory of India','en-US'); });
+      el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&st) openSong(stateAsSong(st)); });
+    }
+    svg.appendChild(el);
+  }
+  if(highlight&&CAPS[highlight]){
+    const [lat,lon]=CAPS[highlight]; const [x,y]=px(lon,lat);
+    const c=document.createElementNS(NS,'circle'); c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r',label?5:4); c.setAttribute('class','cap'); svg.appendChild(c);
+    if(label){ const t=document.createElementNS(NS,'text'); t.setAttribute('x',+x+8); t.setAttribute('y',+y+5); t.setAttribute('font-size','14'); t.setAttribute('class','capl');
+      t.textContent=STATES.find(s=>s.id===highlight).cap; svg.appendChild(t); }
+  }
+}
+function showMiniMap(st){
+  const box=document.getElementById('miniMap');
+  if(!st||typeof INDIA_GEO==='undefined'){ box.hidden=true; return; }
+  box.hidden=false;
+  box.innerHTML=`<svg role="img" aria-label="Map showing ${st.name}"></svg><div class="where"><b>${st.name}</b>Capital: <b style="display:inline;font-size:20px">${st.cap}</b><br><span style="color:var(--muted)">${st.local}</span></div>`;
+  drawMap(box.querySelector('svg'),{highlight:st.id,interactive:false,label:true});
+}
+try{ drawMap(document.getElementById('indiaMap')); }catch(e){ console.warn('map',e); }
+
+/* ========= STARS ========= */
+(function(){
+  const cv=document.getElementById('stars'), g=cv.getContext('2d');
+  let stars=[];
+  function size(){ cv.width=innerWidth; cv.height=innerHeight;
+    stars=Array.from({length:Math.min(220,Math.floor(innerWidth*innerHeight/6000))},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*1.6+.3,p:Math.random()*Math.PI*2,s:Math.random()*.02+.005})); }
+  size(); addEventListener('resize',size);
+  function draw(){
+    g.clearRect(0,0,cv.width,cv.height);
+    for(const s of stars){ s.p+=s.s; const a=.35+.65*(Math.sin(s.p)*.5+.5); g.globalAlpha=a; g.fillStyle='#fff'; g.beginPath(); g.arc(s.x,s.y,s.r,0,7); g.fill(); }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>
