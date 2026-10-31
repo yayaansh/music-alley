@@ -11,6 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
+<meta name="author" content="Rinisha Garg">
 <title>Music Alley</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
@@ -42,7 +43,9 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .logo{font-size:clamp(44px,10vw,88px);font-weight:700;margin:0;letter-spacing:.5px;
   background:linear-gradient(90deg,var(--accent),var(--pink),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 4px 18px rgba(255,107,157,.35))}
-.tag{margin:6px 0 36px;color:var(--muted);font-size:clamp(16px,2.6vw,22px)}
+.tag{margin:6px 0 10px;color:var(--muted);font-size:clamp(16px,2.6vw,22px)}
+.creator{margin:0 0 30px;font-size:clamp(17px,2.8vw,24px);color:var(--ink);letter-spacing:.3px}
+.creator b{background:linear-gradient(90deg,var(--accent),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
 .rooms{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;width:100%;max-width:760px}
 .room{position:relative;overflow:hidden;border-radius:32px;padding:28px 22px 24px;text-align:left;background:var(--card);border:2px solid rgba(255,255,255,.12);
   transition:transform .15s,box-shadow .15s;min-height:190px}
@@ -291,6 +294,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
 <section id="home" class="screen active">
   <h1 class="logo">Music Alley</h1>
   <p class="tag">Mihu's music adventure around the world and across the stars</p>
+  <p class="creator">✨ Created by <b>Rinisha Garg</b> ✨</p>
   <div class="rooms">
     <button class="room flags" onclick="go('flags')">
       <span class="big">🌍</span>
