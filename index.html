@@ -310,7 +310,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     </button>
     <button class="room stage" onclick="go('stage')">
       <span class="big">🌈</span>
-      <h3>Mihu's Stage</h3>
+      <h3>Songs Alley</h3>
       <p>Your own favourite songs, like Equestria Girls, from YouTube or your music files.</p>
       <span class="glow"></span>
     </button>
@@ -333,7 +333,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
 <section id="stage" class="screen">
   <div class="topbar">
     <button class="back" onclick="go('home')" aria-label="Back">←</button>
-    <h2>Mihu's Stage <small>Your favourite songs, your way</small></h2>
+    <h2>Songs Alley <small>Your favourite songs, your way</small></h2>
   </div>
   <div class="player" id="player"></div>
   <div class="dubbar" id="dubbar" hidden>
@@ -1216,7 +1216,7 @@ function showDubBar(item,lang){
   o.onclick=()=>{ subLang.player=null; document.getElementById('dubResults').innerHTML=''; playStage(item); };
   box.prepend(o);
 }
-/* generic dub finder: used by Mihu's Stage and by every country / state screen */
+/* generic dub finder: used by Songs Alley and by every country / state screen */
 const REGION={hi:'IN',ta:'IN',te:'IN',kn:'IN',ml:'IN',bn:'IN',mr:'IN',gu:'IN',pa:'IN',es:'MX',fr:'FR',de:'DE',it:'IT',pt:'BR',ja:'JP',ko:'KR',zh:'TW',ru:'RU',ar:'EG',id:'ID',en:'US'};
 let dubCands=null;
 function dubSetPlayer(ctx,v){ stopAll(); document.getElementById(ctx.playerId).innerHTML=playerHtml({type:'yt',id:v.id,title:v.title}); }
