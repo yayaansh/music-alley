@@ -99,7 +99,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .dubbar[hidden]{display:none}
 .dubhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:17px}
 .tag{background:rgba(255,255,255,.14);border-radius:14px;padding:3px 10px;font-size:14px;font-weight:700}
-.tag.dub{background:rgba(255,107,157,.3);color:#ffd6e5}
+.tag.isdub{background:rgba(255,107,157,.3);color:#ffd6e5}
 .dublabel{font-weight:700;font-size:18px;margin:4px 0 8px}
 .dublangs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .dublangs button{min-height:46px;padding:0 14px;border-radius:24px;background:var(--card2);font-weight:600;font-size:16px;border:2px solid transparent}
@@ -972,7 +972,7 @@ function showDubBar(item,lang){
   bar.hidden=false;
   const L=DUB_LANGS.find(x=>x[0]===lang);
   document.getElementById('nowTag').textContent=L?L[1]+' dub':'Original';
-  document.getElementById('nowTag').className='tag'+(L?' dub':'');
+  document.getElementById('nowTag').className="tag"+(L?" isdub":"");
   document.getElementById('nowTitle').textContent=L&&item.dubs&&item.dubs[lang]?item.dubs[lang].title:item.title;
   const box=document.getElementById('dubLangs'); box.innerHTML='';
   const o=document.createElement('button'); o.className='orig'+(lang?'':' now'); o.textContent='⭐ Original';
@@ -1006,12 +1006,40 @@ async function dubIn(item,lang){
     showDubBar(item,lang); window.scrollTo({top:0,behavior:'smooth'});
   }};
   res.innerHTML='<div class="rmsg">Looking for the '+L[1]+' version…</div>';
+  document.getElementById('nowTag').textContent='Finding '+L[1]+'…';
   await ytSearch(title+' '+L[1]+' dubbed',res,opts);                       // this exact song in that language
   if(series&&series!==title){
     res.insertAdjacentHTML('beforeend','<div class="rmsg wait">Looking for more…</div>');
     await ytSearch(series+' '+L[1]+' dubbed',res,{...opts,keep:true});     // the same show or singer in that language
   }
-  if(res.querySelector('.rcard')) res.insertAdjacentHTML('afterbegin',`<div class="rmsg" style="grid-column:1/-1;text-align:left">These may be ${L[1]} versions of <b>${esc(title)}</b>. Press ▶ to try one, then ✓ to remember it. Next time, ${L[1]} plays with one tap.</div>`);
+  // rank: titles that name the language or say "dub" first; never the original itself
+  const cards=[...res.querySelectorAll('.rcard')].filter(c=>c.dataset.id!==item.id);
+  const score=c=>{ const t=c.querySelector('.rt').textContent.toLowerCase(); return (t.includes(L[1].toLowerCase())||t.includes(L[2].toLowerCase())?2:0)+(/dub/.test(t)?1:0); };
+  cards.sort((a,b)=>score(b)-score(a)); cards.forEach(c=>res.appendChild(c));
+  res.querySelectorAll('.rmsg').forEach(e=>e.remove());
+  if(!cards.length){ res.innerHTML=`<div class="rmsg">I could not find a ${L[1]} version of this song on YouTube. Try another language, or search for it yourself below.</div>`; showDubBar(item,null); return; }
+  dubCands={item,lang,cards,i:0};
+  res.insertAdjacentHTML('afterbegin',`<div class="rmsg dubctl" style="grid-column:1/-1;text-align:left;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+     <span>Playing my best guess for the <b>${L[1]}</b> version. Is it right?</span>
+     <button class="toggle on" onclick="dubYes()">✓ Yes, remember it</button><button class="toggle" onclick="dubNext()">⏭ Try the next one</button></div>`);
+  dubTry(0);
+}
+let dubCands=null;
+function dubTry(i){
+  if(!dubCands) return; const {item,lang,cards}=dubCands; const L=DUB_LANGS.find(x=>x[0]===lang);
+  dubCands.i=(i+cards.length)%cards.length; const c=cards[dubCands.i];
+  cards.forEach(x=>x.style.outline=''); c.style.outline='3px solid var(--pink)';
+  stopAll(); document.getElementById('player').innerHTML=playerHtml({type:'yt',id:c.dataset.id,title:c.querySelector('.rt').textContent});
+  document.getElementById('nowTag').textContent=L[1]+' dub? ('+(dubCands.i+1)+' of '+cards.length+')'; document.getElementById('nowTag').className="tag isdub";
+  document.getElementById('nowTitle').textContent=c.querySelector('.rt').textContent;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function dubNext(){ if(dubCands) dubTry(dubCands.i+1); }
+function dubYes(){
+  if(!dubCands) return; const {item,lang,cards,i}=dubCands; const c=cards[i];
+  item.dubs=item.dubs||{}; item.dubs[lang]={id:c.dataset.id,title:c.querySelector('.rt').textContent}; saveYt();
+  showDubBar(item,lang); dubCands=null;
+  document.getElementById('dubResults').innerHTML=`<div class="rmsg">Remembered! From now on, tapping ${DUB_LANGS.find(x=>x[0]===lang)[1]} plays this version.</div>`;
 }
 function forgetDub(id,lang){ const it=ytList.find(x=>x.id===id); if(it&&it.dubs){ delete it.dubs[lang]; saveYt(); dubIn(it,lang); } }
 loadFiles();
