@@ -75,8 +75,25 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .scard .rm{position:absolute;top:6px;right:6px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.55);font-size:16px;display:grid;place-items:center}
 .addbox{margin-top:22px;background:var(--card);border-radius:24px;padding:16px}
 .addrow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
-.addrow input[type=url]{flex:1 1 220px;min-height:56px;border-radius:30px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;padding:0 18px;font:inherit;font-size:17px}
-.addrow input[type=url]:focus{outline:none;border-color:var(--accent)}
+.addrow input{flex:1 1 220px;min-height:56px;border-radius:30px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;padding:0 18px;font:inherit;font-size:17px;-webkit-appearance:none}
+.addrow input:focus{outline:none;border-color:var(--accent)}
+.searchbox{margin:0 0 18px}
+.keycard{background:rgba(0,0,0,.25);border-radius:18px;padding:14px 16px;margin:4px 0 10px;font-size:16px;line-height:1.45}
+.keycard ol{margin:8px 0 10px;padding-left:22px}
+.keycard li{margin-bottom:6px}
+.keycard a{color:var(--cyan)}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.results:empty{display:none}
+.rcard{background:var(--card2);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.rcard img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+.rcard .rt{padding:10px 12px 4px;font-weight:600;font-size:15px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rcard .rc{padding:0 12px;color:var(--muted);font-size:13px}
+.rcard .ra{display:flex;gap:8px;padding:10px 12px 12px;margin-top:auto}
+.rcard .ra button{flex:1;min-height:44px;border-radius:22px;font-weight:700;font-size:16px}
+.rcard .add{background:linear-gradient(135deg,var(--accent),var(--pink));color:#1a1033}
+.rcard .play{background:rgba(255,255,255,.14)}
+.rcard.added .add{background:var(--green);color:#063}
+.rmsg{grid-column:1/-1;color:var(--muted);text-align:center;padding:14px;font-size:16px}
 .filebtn{display:inline-flex;align-items:center;position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
 a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inherit}
@@ -214,6 +231,27 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
     <h2>Mihu's Stage <small>Your favourite songs, your way</small></h2>
   </div>
   <div class="player" id="player"></div>
+  <div class="addbox searchbox">
+    <div class="addrow">
+      <input id="ytQuery" type="search" placeholder="Search YouTube: Equestria Girls songs…" enterkeyhint="search" onkeydown="if(event.key==='Enter')ytSearch()">
+      <button class="toggle on" onclick="ytSearch()">🔍 Search</button>
+      <button class="toggle" id="keyBtn" onclick="toggleKeyCard()" title="Search settings">⚙️</button>
+    </div>
+    <div class="keycard" id="keyCard" hidden>
+      <b>Turn on search (one-time setup, free)</b>
+      <ol>
+        <li>On a computer, open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud: YouTube Data API</a>, sign in with your Google account and click <b>Enable</b> (create a project if it asks).</li>
+        <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <b>Create credentials</b> → <b>API key</b>, then copy the key.</li>
+        <li>Paste it here. It is saved only on this device.</li>
+      </ol>
+      <div class="addrow">
+        <input id="ytKey" type="password" placeholder="Paste the API key" autocomplete="off">
+        <button class="toggle on" onclick="saveKey()">Save</button>
+      </div>
+      <p class="note" style="margin:6px 0 0;text-align:left" id="keyStatus"></p>
+    </div>
+    <div class="results" id="ytResults"></div>
+  </div>
   <div class="grid stagegrid" id="stageGrid"></div>
   <div class="addbox">
     <div class="addrow">
@@ -736,9 +774,61 @@ async function addYouTube(){
   const inp=document.getElementById('ytUrl'); const id=ytId(inp.value.trim());
   if(!id){ inp.style.borderColor='var(--pink)'; inp.placeholder='That does not look like a YouTube link'; inp.value=''; return; }
   inp.style.borderColor=''; inp.value='';
-  const item={type:'yt',id,title:'YouTube song'};
-  ytList.unshift(item); saveYt(); renderStage(); playStage(item);
+  const item=addYtItem(id,'YouTube song'); playStage(item);
   try{ const r=await fetch('https://noembed.com/embed?url=https://www.youtube.com/watch?v='+id); const j=await r.json(); if(j.title){ item.title=j.title; saveYt(); renderStage(); } }catch(e){}
+}
+function addYtItem(id,title){
+  let item=ytList.find(x=>x.id===id);
+  if(item){ if(title) item.title=title; }
+  else { item={type:'yt',id,title:title||'YouTube song'}; ytList.unshift(item); }
+  saveYt(); renderStage(); return item;
+}
+
+/* ---- YouTube search (needs a free YouTube Data API key, saved on this device) ---- */
+function ytKey(){ try{ return localStorage.getItem('ma_ytkey')||''; }catch(e){ return ''; } }
+function toggleKeyCard(force){
+  const c=document.getElementById('keyCard'); c.hidden=force===undefined?!c.hidden:!force;
+  document.getElementById('keyStatus').textContent=ytKey()?'A key is saved on this device. Paste a new one to replace it.':'No key saved yet.';
+}
+function saveKey(){
+  const k=document.getElementById('ytKey').value.trim();
+  if(!k){ document.getElementById('keyStatus').textContent='Paste the key first.'; return; }
+  try{ localStorage.setItem('ma_ytkey',k); }catch(e){}
+  document.getElementById('ytKey').value='';
+  document.getElementById('keyStatus').textContent='Saved! Try a search.';
+  setTimeout(()=>toggleKeyCard(false),900);
+  if(document.getElementById('ytQuery').value.trim()) ytSearch();
+}
+function decodeHtml(s){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
+async function ytSearch(){
+  const q=document.getElementById('ytQuery').value.trim(); const box=document.getElementById('ytResults');
+  if(!q) return;
+  const key=ytKey();
+  if(!key){ toggleKeyCard(true); box.innerHTML='<div class="rmsg">Search needs a one-time setup. Follow the three steps above.</div>'; return; }
+  box.innerHTML='<div class="rmsg">Searching…</div>';
+  try{
+    const u='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults=12&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+    const r=await fetch(u); const j=await r.json();
+    if(j.error){
+      const m=j.error.message||'';
+      box.innerHTML='<div class="rmsg">'+(r.status===403&&/quota/i.test(m)?'Today’s free search limit is used up. Try again tomorrow, or paste a link instead.':'Search is not working: '+esc(m)+'. Check the key in ⚙️.')+'</div>';
+      if(r.status===400||r.status===403&&!/quota/i.test(m)) toggleKeyCard(true);
+      return;
+    }
+    const items=(j.items||[]).filter(it=>it.id&&it.id.videoId);
+    if(!items.length){ box.innerHTML='<div class="rmsg">Nothing found. Try different words.</div>'; return; }
+    box.innerHTML='';
+    items.forEach(it=>{
+      const id=it.id.videoId, title=decodeHtml(it.snippet.title), ch=decodeHtml(it.snippet.channelTitle||'');
+      const thumb=(it.snippet.thumbnails.medium||it.snippet.thumbnails.default||{}).url||`https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+      const d=document.createElement('div'); d.className='rcard'+(ytList.some(x=>x.id===id)?' added':'');
+      d.innerHTML=`<img src="${thumb}" alt=""><div class="rt">${esc(title)}</div><div class="rc">${esc(ch)}</div>
+        <div class="ra"><button class="play">▶ Play</button><button class="add">${ytList.some(x=>x.id===id)?'✓ Added':'＋ Add'}</button></div>`;
+      d.querySelector('.play').onclick=()=>{ stopAll(); stageNow=null; document.getElementById('player').innerHTML=playerHtml({type:'yt',id,title}); window.scrollTo({top:0,behavior:'smooth'}); };
+      d.querySelector('.add').onclick=()=>{ addYtItem(id,title); d.classList.add('added'); d.querySelector('.add').textContent='✓ Added'; };
+      box.appendChild(d);
+    });
+  }catch(e){ box.innerHTML='<div class="rmsg">Could not reach YouTube. Is the internet on?</div>'; }
 }
 function dbOpen(){
   return new Promise((res,rej)=>{
