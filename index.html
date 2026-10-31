@@ -120,7 +120,7 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .sheet .close{margin-top:16px;width:100%}
 
 /* flags grid */
-.sub{display:flex;align-items:center;gap:10px;font-size:24px;margin:26px 0 12px}
+.sub{display:flex;align-items:center;gap:10px;font-size:24px;margin:26px 0 12px;scroll-margin-top:70px}
 /* India map */
 .mapwrap{position:relative;background:var(--card);border-radius:28px;padding:14px;margin-bottom:16px;display:flex;justify-content:center}
 .mapwrap svg{width:100%;max-width:520px;height:auto;display:block;overflow:visible}
@@ -139,6 +139,13 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .minimap .where b{font-size:22px;display:block}
 .sub img{height:22px;border-radius:4px}
 .flag-card small.local{font-size:15px;color:var(--ink);font-weight:600}
+.flag-card .songmark{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);border-radius:14px;padding:2px 8px;font-size:13px;font-weight:700;color:var(--accent)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:none;position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg) 70%,transparent)}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:0 0 auto;min-height:44px;padding:0 16px;border-radius:24px;background:var(--card2);font-weight:600;font-size:16px;border:2px solid transparent}
+.chips button:active{border-color:var(--accent)}
+.sub .count{color:var(--muted);font-size:16px;font-weight:400}
+#sresults{margin-bottom:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
 .flag-card{background:var(--card);border-radius:22px;padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;
   border:2px solid transparent;transition:transform .12s,border-color .12s}
@@ -206,7 +213,7 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
     <button class="room flags" onclick="go('flags')">
       <span class="big">🌍</span>
       <h3>Flag Alley</h3>
-      <p>Tap a flag, press <b>Dub</b>, and sing songs from 13 countries, and explore every Indian state on the map, with the words in English too.</p>
+      <p>Every country in the world, continent by continent, plus every Indian state on a map. Say hello in each language, sing along, and find songs from anywhere.</p>
       <span class="glow"></span>
     </button>
     <button class="room planets" onclick="go('planets')">
@@ -272,9 +279,9 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
     <button class="back" onclick="go('home')" aria-label="Back">←</button>
     <h2>Flag Alley <small>Pick a country or a state and press Dub</small></h2>
   </div>
-  <h3 class="sub">🌍 Countries</h3>
-  <div class="grid" id="flagGrid"></div>
-  <h3 class="sub"><img src="https://flagcdn.com/w40/in.png" alt=""> Indian states</h3>
+  <div class="chips" id="contChips"></div>
+  <div id="continents"></div>
+  <h3 class="sub" id="cont-india"><img src="https://flagcdn.com/w40/in.png" alt=""> Indian states</h3>
   <p class="tip" style="text-align:left;margin-top:-6px">Indian states don't have official flags, so each one has its own colourful card. Tap a state on the map or a card below.</p>
   <div class="mapwrap"><svg id="indiaMap" role="img" aria-label="Map of India"></svg><div class="maptip" id="mapTip">Tap a state</div></div>
   <div class="grid" id="stateGrid"></div>
@@ -292,8 +299,10 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
     <button class="toggle" id="slowBtn" onclick="toggleOpt('slow',this)">🐢 Slow</button>
     <button class="toggle" id="teachBtn" onclick="toggleOpt('teach',this)">🎓 Teach me</button>
     <button class="toggle" id="pinPlayBtn" hidden onclick="togglePinPlayer('splayer',pinKeyNow)">🌈 Mihu's song</button>
+    <button class="toggle" id="findBtn" onclick="findSongs()">🔍 Songs from here</button>
   </div>
   <div class="player" id="splayer"></div>
+  <div class="results" id="sresults" data-player="splayer"></div>
   <div class="minimap" id="miniMap" hidden></div>
   <div class="lyrics" id="lyrics"></div>
   <p class="note" id="songNote"></p>
@@ -328,6 +337,7 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 </div>
 
 <script src="india.js"></script>
+<script src="world.js"></script>
 <script>
 /* ========= DATA: songs (all traditional / public domain) ========= */
 const SONGS = [
@@ -640,6 +650,7 @@ function go(id){
   document.getElementById(id).classList.add('active');
   if(id!=='stage'){ stageNow=null; }
   document.querySelectorAll('.player').forEach(p=>p.innerHTML='');
+  const sr=document.getElementById('sresults'); if(sr) sr.innerHTML='';
   window.scrollTo(0,0);
   syncToggles();
 }
@@ -651,16 +662,45 @@ function syncToggles(){
 }
 function flagUrl(code,w){ return `https://flagcdn.com/w${w}/${code}.png`; }
 
-/* ========= UI: flags ========= */
-const grid=document.getElementById('flagGrid');
-SONGS.forEach(s=>{
-  const b=document.createElement('button'); b.className='flag-card';
-  b.innerHTML=`<img src="${flagUrl(s.code,320)}" alt=""><span class="code">${s.code.toUpperCase().slice(0,3)}</span><b>${s.country}</b><small>${s.title}</small><span class="badge" hidden>🌈</span>`;
-  b.dataset.pin='flag:'+s.id;
-  b.querySelector('img').onerror=()=>b.classList.add('noimg');
-  b.onclick=()=>openSong(s);
-  grid.appendChild(b);
-});
+/* ========= UI: flags (all countries, by continent) ========= */
+function songFor(code){ return SONGS.find(s=>s.code===code)||null; }
+function pinKeyForCountry(c){ const s=songFor(c[0]); return 'flag:'+(s?s.id:c[0]); }
+function countryAsSong(c){
+  const g=GREET[c[4]]||GREET.en;
+  const lines=[{text:g[1],roman:g[2]||null,en:g[3]}];
+  return {id:c[0],code:c[0],country:c[1],pinKey:pinKeyForCountry(c),lang:g[0],title:c[1],
+    say:c[1]+'. Capital: '+c[3],note:'Capital: '+c[3]+' · '+c[2]+'. Press Dub to hear hello in the local language, or find a song from '+c[1]+'.',
+    countryInfo:c,inst:'musicbox',bpm:100,lines};
+}
+(function buildWorld(){
+  const chips=document.getElementById('contChips'), wrap=document.getElementById('continents');
+  if(typeof WORLD==='undefined'){ return; }
+  CONTINENTS.forEach(([name,icon])=>{
+    const list=WORLD.filter(c=>c[2]===name).sort((a,b)=>a[1].localeCompare(b[1]));
+    const id='cont-'+name.toLowerCase().replace(/\s+/g,'-');
+    const chip=document.createElement('button'); chip.textContent=icon+' '+name; chip.onclick=()=>document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'}); chips.appendChild(chip);
+    const h=document.createElement('h3'); h.className='sub'; h.id=id; h.innerHTML=`${icon} ${name} <span class="count">${list.length} countries</span>`; wrap.appendChild(h);
+    const grid=document.createElement('div'); grid.className='grid';
+    list.forEach(c=>{
+      const s=songFor(c[0]);
+      const b=document.createElement('button'); b.className='flag-card';
+      b.innerHTML=`<img src="${flagUrl(c[0],320)}" alt="" loading="lazy"><span class="code">${c[0].toUpperCase().slice(0,3)}</span><b>${c[1]}</b><small>${s?'🎵 '+s.title:c[3]}</small><span class="badge" hidden>🌈</span>`+(s?'<span class="songmark">🎵 song</span>':'');
+      b.dataset.pin=pinKeyForCountry(c);
+      b.querySelector('img').onerror=()=>b.classList.add('noimg');
+      b.onclick=()=>openSong(s?{...s,countryInfo:c,note:'Capital: '+c[3]+' · '+c[2]+'. A traditional song, free for everyone to sing.'}:countryAsSong(c));
+      grid.appendChild(b);
+    });
+    wrap.appendChild(grid);
+  });
+  const chip=document.createElement('button'); chip.textContent='🪔 Indian states'; chip.onclick=()=>document.getElementById('cont-india').scrollIntoView({behavior:'smooth',block:'start'}); chips.appendChild(chip);
+})();
+function findSongs(){
+  const s=songNow; if(!s) return;
+  const q=s.state?`${s.state.name} folk song for kids`:`${(s.countryInfo?s.countryInfo[1]:s.country)} children's song`;
+  const box=document.getElementById('sresults');
+  document.getElementById('findBtn').textContent='🔍 Searching…';
+  ytSearch(q,box).then(()=>{ document.getElementById('findBtn').textContent='🔍 Songs from here'; box.scrollIntoView({behavior:'smooth',block:'start'}); });
+}
 const sgrid=document.getElementById('stateGrid');
 STATES.forEach(st=>{
   const b=document.createElement('button'); b.className='flag-card';
@@ -685,6 +725,9 @@ function openSong(s){
   document.getElementById('songNote').textContent=s.note||'A traditional song, free for everyone to sing.';
   document.getElementById('dubBtn').dataset.mode=s.state?'speak':'sing';
   showMiniMap(s.state||null);
+  document.getElementById('sresults').innerHTML='';
+  const place=s.state?s.state.name:(s.countryInfo?s.countryInfo[1]:s.country);
+  document.getElementById('findBtn').textContent='🔍 Songs from '+place;
   const ly=document.getElementById('lyrics'); ly.innerHTML='';
   s.lines.forEach((l,i)=>{
     const d=document.createElement('div'); d.className='line'; d.dataset.i=i;
@@ -803,8 +846,10 @@ function saveKey(){
   if(document.getElementById('ytQuery').value.trim()) ytSearch();
 }
 function decodeHtml(s){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
-async function ytSearch(){
-  const q=document.getElementById('ytQuery').value.trim(); const box=document.getElementById('ytResults');
+async function ytSearch(q,box){
+  if(typeof q!=='string') q=document.getElementById('ytQuery').value.trim();
+  if(!box) box=document.getElementById('ytResults');
+  const playerId=box.dataset.player||'player';
   if(!q) return;
   const key=ytKey();
   if(!key){ toggleKeyCard(true); box.innerHTML='<div class="rmsg">Search needs a one-time setup. Follow the three steps above.</div>'; return; }
@@ -827,7 +872,7 @@ async function ytSearch(){
       const d=document.createElement('div'); d.className='rcard'+(ytList.some(x=>x.id===id)?' added':'');
       d.innerHTML=`<img src="${thumb}" alt=""><div class="rt">${esc(title)}</div><div class="rc">${esc(ch)}</div>
         <div class="ra"><button class="play">▶ Play</button><button class="add">${ytList.some(x=>x.id===id)?'✓ Added':'＋ Add'}</button></div>`;
-      d.querySelector('.play').onclick=()=>{ stopAll(); stageNow=null; document.getElementById('player').innerHTML=playerHtml({type:'yt',id,title}); window.scrollTo({top:0,behavior:'smooth'}); };
+      d.querySelector('.play').onclick=()=>{ stopAll(); stageNow=null; const p=document.getElementById(playerId); p.innerHTML=playerHtml({type:'yt',id,title}); p.scrollIntoView({behavior:'smooth',block:'center'}); };
       d.querySelector('.add').onclick=()=>{ addYtItem(id,title); d.classList.add('added'); d.querySelector('.add').textContent='✓ Added'; };
       box.appendChild(d);
     });
@@ -911,10 +956,11 @@ function togglePin(key){
 }
 function renderPick(){
   const f=document.getElementById('pickFlags'); f.innerHTML='';
-  SONGS.forEach(s=>{
-    const k='flag:'+s.id, has=pins[k]&&pins[k].id===pinItem.id, other=pins[k]&&!has;
+  const list=(typeof WORLD!=='undefined')?[...WORLD].sort((a,b)=>a[1].localeCompare(b[1])):SONGS.map(s=>[s.code,s.country,'','',s.id]);
+  list.forEach(c=>{
+    const k=(typeof WORLD!=='undefined')?pinKeyForCountry(c):'flag:'+c[4], has=pins[k]&&pins[k].id===pinItem.id, other=pins[k]&&!has;
     const b=document.createElement('button'); b.className=has?'has':'';
-    b.innerHTML=`<img src="${flagUrl(s.code,80)}" alt="">${s.country}${has?' ✓':other?' 🌈':''}`;
+    b.innerHTML=`<img src="${flagUrl(c[0],80)}" alt="" loading="lazy">${c[1]}${has?' ✓':other?' 🌈':''}`;
     b.onclick=()=>togglePin(k); f.appendChild(b);
   });
   const sg=document.getElementById('pickStates'); sg.innerHTML='';
