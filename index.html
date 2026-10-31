@@ -106,6 +106,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .dublangs button.has{border-color:var(--green)}
 .dublangs button.now{background:linear-gradient(135deg,var(--accent),var(--pink));color:#1a1033}
 .dublangs button.orig{background:rgba(255,255,255,.2)}
+.langsel{min-height:46px;border-radius:24px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;padding:0 14px;font:inherit;font-size:16px;font-weight:600;max-width:220px}
 .dubnote{color:var(--muted);font-size:14px;margin:4px 0 8px}
 .filebtn{display:inline-flex;align-items:center;position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
@@ -322,6 +323,12 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
     <button class="toggle" id="findBtn" onclick="findSongs()">🔍 Songs from here</button>
   </div>
   <div class="player" id="splayer"></div>
+  <div class="dubbar" id="sdubbar">
+    <div class="dubhead"><span class="tag isdub" id="sNowTag" hidden></span><b id="sNowTitle"></b></div>
+    <div class="dublabel">🎙️ Dub it in…</div>
+    <div class="dublangs" id="sDubLangs"></div>
+    <p class="dubnote">Plays a song from this place sung in the language you pick.</p>
+  </div>
   <div class="results" id="sresults" data-player="splayer"></div>
   <div class="minimap" id="miniMap" hidden></div>
   <div class="lyrics" id="lyrics"></div>
@@ -748,6 +755,7 @@ function openSong(s){
   document.getElementById('sresults').innerHTML='';
   const place=s.state?s.state.name:(s.countryInfo?s.countryInfo[1]:s.country);
   document.getElementById('findBtn').textContent='🔍 Songs from '+place;
+  renderPlaceDubs(s,null); dubSetTag({tagId:'sNowTag',titleId:'sNowTitle'},'','');
   const ly=document.getElementById('lyrics'); ly.innerHTML='';
   s.lines.forEach((l,i)=>{
     const d=document.createElement('div'); d.className='line'; d.dataset.i=i;
@@ -865,6 +873,8 @@ function saveKey(){
   setTimeout(()=>toggleKeyCard(false),900);
   if(document.getElementById('ytQuery').value.trim()) ytSearch();
 }
+const NOT_FOR_KIDS=/\b(horror|scary|creepy|kill(ed|er|ing)?|murder|gun|shoot(ing)?|blood|gore|death|dead|die|sexy|sex|hot girls?|kiss(ing)?|18\+|adult|nsfw|drunk|beer|vodka|weed|drugs?|cigarette|smok(e|ing)|curse|cuss|swear(ing)?|f\*+k|wtf|damn|hell|violen(t|ce)|fight(ing)?|war|terror|item song|romantic|romance|love story|trailer|prank gone wrong|exposed|roast|diss|creepypasta|fnaf|slender|siren head|huggy wuggy|skibidi|squid game|gacha heat)\b/i;
+function kidSafe(sn){ const t=(decodeHtml(sn.title||'')+' '+decodeHtml(sn.channelTitle||'')+' '+(sn.description||'')).toLowerCase(); return !NOT_FOR_KIDS.test(t); }
 function decodeHtml(s){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
 async function ytSearch(q,box,opts={}){
   if(typeof q!=='string') q=document.getElementById('ytQuery').value.trim();
@@ -884,7 +894,7 @@ async function ytSearch(q,box,opts={}){
       return;
     }
     const have=new Set([...box.querySelectorAll('.rcard')].map(c=>c.dataset.id));
-    const items=(j.items||[]).filter(it=>it.id&&it.id.videoId&&!have.has(it.id.videoId));
+    const items=(j.items||[]).filter(it=>it.id&&it.id.videoId&&!have.has(it.id.videoId)&&kidSafe(it.snippet));
     if(!items.length){ if(!opts.keep||!have.size) box.innerHTML='<div class="rmsg">Nothing found. Try different words.</div>'; return; }
     if(!opts.keep) box.innerHTML=''; else box.querySelectorAll('.rmsg.wait').forEach(e=>e.remove());
     items.forEach(it=>{
@@ -966,6 +976,23 @@ function cleanTitle(t){
     .replace(/\b(official|music|video|lyrics?|lyric|4k|hd|remaster(ed)?|mv|full|song|version|audio|hq)\b/gi,' ')
     .replace(/[-–—:]+/g,' ').replace(/\s+/g,' ').trim();
 }
+let recentLangs=[]; try{ recentLangs=JSON.parse(localStorage.getItem('ma_recentlangs')||'[]'); }catch(e){ recentLangs=[]; }
+function noteLang(code){ recentLangs=[code,...recentLangs.filter(c=>c!==code&&c!=='hi')].slice(0,2); try{ localStorage.setItem('ma_recentlangs',JSON.stringify(recentLangs)); }catch(e){} }
+function langChips(box,lang,hasFn,onPick){
+  box.innerHTML='';
+  const visible=['hi',...recentLangs.filter(c=>c!=='hi'),'ta','te'].filter((c,i,a)=>a.indexOf(c)===i).slice(0,3);
+  if(lang&&!visible.includes(lang)) visible[2]=lang;
+  visible.forEach(code=>{
+    const [,name,native]=DUB_LANGS.find(x=>x[0]===code);
+    const b=document.createElement('button'); const has=hasFn(code);
+    b.className=(has?'has':'')+(lang===code?' now':''); b.textContent=(has?'✓ ':'')+name; b.title=native;
+    b.onclick=()=>{ noteLang(code); onPick(code); }; box.appendChild(b);
+  });
+  const sel=document.createElement('select'); sel.className='langsel';
+  sel.innerHTML='<option value="">More languages…</option>'+DUB_LANGS.filter(([c])=>!visible.includes(c)).map(([c,n,nat])=>`<option value="${c}">${hasFn(c)?'✓ ':''}${n} · ${nat}</option>`).join('');
+  sel.onchange=()=>{ const c=sel.value; if(c){ noteLang(c); onPick(c); } };
+  box.appendChild(sel);
+}
 function showDubBar(item,lang){
   const bar=document.getElementById('dubbar');
   if(!item||item.type!=='yt'){ bar.hidden=true; return; }
@@ -974,74 +1001,107 @@ function showDubBar(item,lang){
   document.getElementById('nowTag').textContent=L?L[1]+' dub':'Original';
   document.getElementById('nowTag').className="tag"+(L?" isdub":"");
   document.getElementById('nowTitle').textContent=L&&item.dubs&&item.dubs[lang]?item.dubs[lang].title:item.title;
-  const box=document.getElementById('dubLangs'); box.innerHTML='';
+  const box=document.getElementById('dubLangs');
+  langChips(box,lang,c=>item.dubs&&item.dubs[c],c=>dubIn(item,c));
   const o=document.createElement('button'); o.className='orig'+(lang?'':' now'); o.textContent='⭐ Original';
   o.onclick=()=>{ stopAll(); document.getElementById('player').innerHTML=playerHtml(item); document.getElementById('dubResults').innerHTML=''; showDubBar(item,null); };
-  box.appendChild(o);
-  DUB_LANGS.forEach(([code,name,native])=>{
-    const b=document.createElement('button'); const has=item.dubs&&item.dubs[code];
-    b.className=(has?'has':'')+(lang===code?' now':''); b.textContent=(has?'✓ ':'')+name;
-    b.title=native; b.onclick=()=>dubIn(item,code);
-    box.appendChild(b);
-  });
+  box.prepend(o);
   document.getElementById('dubResults').innerHTML='';
 }
-async function dubIn(item,lang){
-  const L=DUB_LANGS.find(x=>x[0]===lang); const stored=item.dubs&&item.dubs[lang];
-  const res=document.getElementById('dubResults');
-  if(stored){ // play the remembered dub straight away
-    stopAll(); document.getElementById('player').innerHTML=playerHtml({type:'yt',id:stored.id,title:stored.title});
-    showDubBar(item,lang);
-    res.innerHTML=`<div class="rmsg">Playing the ${L[1]} dub. Not the right one? <button class="toggle" style="min-height:40px;font-size:15px" onclick="forgetDub('${item.id}','${lang}')">Choose another</button></div>`;
-    return;
+/* generic dub finder: used by Mihu's Stage and by every country / state screen */
+const REGION={hi:'IN',ta:'IN',te:'IN',kn:'IN',ml:'IN',bn:'IN',mr:'IN',gu:'IN',pa:'IN',es:'MX',fr:'FR',de:'DE',it:'IT',pt:'BR',ja:'JP',ko:'KR',zh:'TW',ru:'RU',ar:'EG',id:'ID',en:'US'};
+let dubCands=null;
+function dubSetPlayer(ctx,v){ stopAll(); document.getElementById(ctx.playerId).innerHTML=playerHtml({type:'yt',id:v.id,title:v.title}); }
+function dubSetTag(ctx,tag,title){
+  const t=document.getElementById(ctx.tagId), b=document.getElementById(ctx.titleId);
+  if(t){ t.hidden=!tag; t.textContent=tag||''; t.className='tag isdub'; }
+  if(b) b.textContent=title||'';
+}
+async function dubRun(ctx,lang,queries){
+  const L=DUB_LANGS.find(x=>x[0]===lang); const res=document.getElementById(ctx.resultsId);
+  const stored=ctx.stored(lang);
+  dubCands={ctx,lang,cards:[],i:0};
+  if(stored){ // play the remembered version straight away
+    dubSetPlayer(ctx,stored); dubSetTag(ctx,L[1]+' dub',stored.title); ctx.onLang&&ctx.onLang(lang);
+    res.innerHTML=`<div class="rmsg">Playing the ${L[1]} version. Not the right one? <button class="toggle" style="min-height:40px;font-size:15px" onclick="dubForget()">Choose another</button></div>`;
+    window.scrollTo({top:0,behavior:'smooth'}); return;
   }
-  showDubBar(item,null);
-  document.querySelectorAll('#dubLangs button').forEach(b=>{ if(b.textContent.replace('✓ ','')===L[1]) b.classList.add('now'); });
-  const REGION={hi:'IN',ta:'IN',te:'IN',kn:'IN',ml:'IN',bn:'IN',mr:'IN',gu:'IN',pa:'IN',es:'MX',fr:'FR',de:'DE',it:'IT',pt:'BR',ja:'JP',ko:'KR',zh:'TW',ru:'RU',ar:'EG',id:'ID',en:'US'};
+  ctx.onLang&&ctx.onLang(lang,true);
   const extra='&relevanceLanguage='+lang+'&regionCode='+(REGION[lang]||'US');
-  const title=cleanTitle(item.title), series=cleanTitle((item.title||'').split(/[-–—:|]/)[0]);
-  const opts={extra,max:8,pickLabel:'✓ This is the '+L[1]+' one',onPick:(id,t)=>{
-    item.dubs=item.dubs||{}; item.dubs[lang]={id,title:t}; saveYt();
-    stopAll(); document.getElementById('player').innerHTML=playerHtml({type:'yt',id,title:t});
-    showDubBar(item,lang); window.scrollTo({top:0,behavior:'smooth'});
-  }};
+  const opts={extra,max:8,pickLabel:'✓ This is the '+L[1]+' one',onPick:(id,t)=>{ dubCands={ctx,lang,cards:[],i:0}; dubKeep({id,title:t}); }};
   res.innerHTML='<div class="rmsg">Looking for the '+L[1]+' version…</div>';
-  document.getElementById('nowTag').textContent='Finding '+L[1]+'…';
-  await ytSearch(title+' '+L[1]+' dubbed',res,opts);                       // this exact song in that language
-  if(series&&series!==title){
-    res.insertAdjacentHTML('beforeend','<div class="rmsg wait">Looking for more…</div>');
-    await ytSearch(series+' '+L[1]+' dubbed',res,{...opts,keep:true});     // the same show or singer in that language
+  dubSetTag(ctx,'Finding '+L[1]+'…','');
+  for(let k=0;k<queries.length;k++){
+    if(k) res.insertAdjacentHTML('beforeend','<div class="rmsg wait">Looking for more…</div>');
+    await ytSearch(queries[k],res,{...opts,keep:k>0});
   }
   // rank: titles that name the language or say "dub" first; never the original itself
-  const cards=[...res.querySelectorAll('.rcard')].filter(c=>c.dataset.id!==item.id);
-  const score=c=>{ const t=c.querySelector('.rt').textContent.toLowerCase(); return (t.includes(L[1].toLowerCase())||t.includes(L[2].toLowerCase())?2:0)+(/dub/.test(t)?1:0); };
+  const cards=[...res.querySelectorAll('.rcard')].filter(c=>c.dataset.id!==ctx.excludeId);
+  const score=c=>{ const t=(c.querySelector('.rt').textContent+' '+c.querySelector('.rc').textContent).toLowerCase(); return (t.includes(L[1].toLowerCase())||t.includes(L[2].toLowerCase())?2:0)+(/dub/.test(t)?1:0)+(/kids?|children|nursery|rhyme|baby|cartoon|toddler|preschool|poem|balgeet|बच्च/i.test(t)?2:0)+(/movie|film|trailer|item song|romantic|love song|dj|remix/i.test(t)?-3:0); };
   cards.sort((a,b)=>score(b)-score(a)); cards.forEach(c=>res.appendChild(c));
   res.querySelectorAll('.rmsg').forEach(e=>e.remove());
-  if(!cards.length){ res.innerHTML=`<div class="rmsg">I could not find a ${L[1]} version of this song on YouTube. Try another language, or search for it yourself below.</div>`; showDubBar(item,null); return; }
-  dubCands={item,lang,cards,i:0};
+  if(!cards.length){ res.innerHTML=`<div class="rmsg">I could not find a ${L[1]} version on YouTube. Try another language.</div>`; dubSetTag(ctx,'',''); ctx.onLang&&ctx.onLang(null); return; }
+  dubCands={ctx,lang,cards,i:0};
   res.insertAdjacentHTML('afterbegin',`<div class="rmsg dubctl" style="grid-column:1/-1;text-align:left;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-     <span>Playing my best guess for the <b>${L[1]}</b> version. Is it right?</span>
+     <span>Playing my best guess in <b>${L[1]}</b>. Is it right?</span>
      <button class="toggle on" onclick="dubYes()">✓ Yes, remember it</button><button class="toggle" onclick="dubNext()">⏭ Try the next one</button></div>`);
   dubTry(0);
 }
-let dubCands=null;
 function dubTry(i){
-  if(!dubCands) return; const {item,lang,cards}=dubCands; const L=DUB_LANGS.find(x=>x[0]===lang);
+  if(!dubCands||!dubCands.cards.length) return; const {ctx,lang,cards}=dubCands; const L=DUB_LANGS.find(x=>x[0]===lang);
   dubCands.i=(i+cards.length)%cards.length; const c=cards[dubCands.i];
   cards.forEach(x=>x.style.outline=''); c.style.outline='3px solid var(--pink)';
-  stopAll(); document.getElementById('player').innerHTML=playerHtml({type:'yt',id:c.dataset.id,title:c.querySelector('.rt').textContent});
-  document.getElementById('nowTag').textContent=L[1]+' dub? ('+(dubCands.i+1)+' of '+cards.length+')'; document.getElementById('nowTag').className="tag isdub";
-  document.getElementById('nowTitle').textContent=c.querySelector('.rt').textContent;
+  const v={id:c.dataset.id,title:c.querySelector('.rt').textContent};
+  dubSetPlayer(ctx,v); dubSetTag(ctx,L[1]+' dub? ('+(dubCands.i+1)+' of '+cards.length+')',v.title);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function dubNext(){ if(dubCands) dubTry(dubCands.i+1); }
-function dubYes(){
-  if(!dubCands) return; const {item,lang,cards,i}=dubCands; const c=cards[i];
-  item.dubs=item.dubs||{}; item.dubs[lang]={id:c.dataset.id,title:c.querySelector('.rt').textContent}; saveYt();
-  showDubBar(item,lang); dubCands=null;
-  document.getElementById('dubResults').innerHTML=`<div class="rmsg">Remembered! From now on, tapping ${DUB_LANGS.find(x=>x[0]===lang)[1]} plays this version.</div>`;
+function dubYes(){ if(!dubCands||!dubCands.cards.length) return; const c=dubCands.cards[dubCands.i]; dubKeep({id:c.dataset.id,title:c.querySelector('.rt').textContent}); }
+function dubKeep(v){
+  const {ctx,lang}=dubCands; const L=DUB_LANGS.find(x=>x[0]===lang);
+  ctx.remember(lang,v); dubSetPlayer(ctx,v); dubSetTag(ctx,L[1]+' dub',v.title); ctx.onLang&&ctx.onLang(lang);
+  document.getElementById(ctx.resultsId).innerHTML=`<div class="rmsg">Remembered! From now on, tapping ${L[1]} here plays this version.</div>`;
+  window.scrollTo({top:0,behavior:'smooth'});
 }
-function forgetDub(id,lang){ const it=ytList.find(x=>x.id===id); if(it&&it.dubs){ delete it.dubs[lang]; saveYt(); dubIn(it,lang); } }
+function dubForget(){ if(!dubCands) return; const {ctx,lang}=dubCands; ctx.forget(lang); ctx.start(lang); }
+
+/* Stage songs: dub a YouTube song she added */
+function dubIn(item,lang){
+  const L=DUB_LANGS.find(x=>x[0]===lang);
+  const title=cleanTitle(item.title), series=cleanTitle((item.title||'').split(/[-–—:|]/)[0]);
+  const queries=[title+' '+L[1]+' dubbed']; if(series&&series!==title) queries.push(series+' '+L[1]+' dubbed');
+  const ctx={playerId:'player',resultsId:'dubResults',tagId:'nowTag',titleId:'nowTitle',excludeId:item.id,
+    stored:l=>item.dubs&&item.dubs[l]||null,
+    remember:(l,v)=>{ item.dubs=item.dubs||{}; item.dubs[l]=v; saveYt(); },
+    forget:l=>{ if(item.dubs) delete item.dubs[l]; saveYt(); },
+    onLang:(l,searching)=>{ const keep=document.getElementById('dubResults').innerHTML; showDubBar(item,l); document.getElementById('dubResults').innerHTML=keep; if(searching){ document.querySelectorAll('#dubLangs button').forEach(b=>{ if(b.textContent.replace('✓ ','')===L[1]) b.classList.add('now'); }); } },
+    start:l=>dubIn(item,l)};
+  return dubRun(ctx,lang,queries);
+}
+
+/* Country and state screens: a song from that place in the chosen language */
+let placeDubs={}; try{ placeDubs=JSON.parse(localStorage.getItem('ma_placedubs')||'{}'); }catch(e){ placeDubs={}; }
+function savePlaceDubs(){ try{ localStorage.setItem('ma_placedubs',JSON.stringify(placeDubs)); }catch(e){} }
+function placeKey(s){ return s.pinKey||('flag:'+s.id); }
+function renderPlaceDubs(s,lang){
+  langChips(document.getElementById('sDubLangs'),lang,c=>placeDubs[placeKey(s)+':'+c],c=>placeDub(c));
+}
+function placeDub(lang){
+  const s=songNow; if(!s) return; const L=DUB_LANGS.find(x=>x[0]===lang); const key=placeKey(s);
+  const place=s.state?s.state.name:(s.countryInfo?s.countryInfo[1]:s.country);
+  const sings=s.lines&&s.lines[0]&&s.lines[0].notes; // a built-in melody song
+  let queries;
+  if(s.state) queries=[place+' kids song in '+L[1], place+' nursery rhyme for children '+L[1]];
+  else if(sings) queries=[s.title.replace(/\(.*\)/,'')+' nursery rhyme '+L[1], place+" children's song in "+L[1]];
+  else queries=[place+' kids song in '+L[1], place+' nursery rhyme for children '+L[1]];
+  const ctx={playerId:'splayer',resultsId:'sresults',tagId:'sNowTag',titleId:'sNowTitle',excludeId:null,
+    stored:l=>placeDubs[key+':'+l]||null,
+    remember:(l,v)=>{ placeDubs[key+':'+l]=v; savePlaceDubs(); },
+    forget:l=>{ delete placeDubs[key+':'+l]; savePlaceDubs(); },
+    onLang:l=>renderPlaceDubs(s,l),
+    start:l=>placeDub(l)};
+  return dubRun(ctx,lang,queries);
+}
 loadFiles();
 
 /* ========= PINS: her songs on flags and planets ========= */
