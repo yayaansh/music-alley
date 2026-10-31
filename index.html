@@ -154,6 +154,13 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .flagnote{display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:15px;line-height:1.35;color:var(--ink)}
 .flagnote img{width:64px;height:43px;border-radius:6px;flex:0 0 auto;box-shadow:0 3px 8px rgba(0,0,0,.4)}
 .flagnote b{display:inline;font-size:15px}
+.fact.info{flex-direction:column;align-items:stretch;gap:10px;margin:0 0 14px}
+.fact.info .lead{display:flex;gap:12px;align-items:flex-start}
+.fact.info .lead .dot{margin-top:4px}
+.fact.info .chips3{display:flex;flex-wrap:wrap;gap:8px}
+.fact.info .chips3 span{background:rgba(255,255,255,.1);border-radius:16px;padding:6px 12px;font-size:15px}
+.fact.info .chips3 b{font-weight:700}
+.fact.info .toggle{align-self:flex-start;min-height:44px;font-size:15px}
 .sub img{height:22px;border-radius:4px}
 .flag-card small.local{font-size:15px;color:var(--ink);font-weight:600}
 .flag-card .songmark{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);border-radius:14px;padding:2px 8px;font-size:13px;font-weight:700;color:var(--accent)}
@@ -372,6 +379,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   </div>
   <div class="results" id="sresults" data-player="splayer"></div>
   <div class="minimap" id="miniMap" hidden></div>
+  <div class="fact info" id="placeInfo" hidden></div>
   <div class="lyrics" id="lyrics"></div>
   <p class="note" id="songNote"></p>
 </section>
@@ -436,6 +444,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
 
 <script src="india.js"></script>
 <script src="world.js"></script>
+<script src="facts.js"></script>
 <script>
 /* ========= DATA: songs (all traditional / public domain) ========= */
 const SONGS = [
@@ -835,7 +844,7 @@ function openSong(s){
   document.getElementById('songFlag').src=s.img||flagUrl(s.code,160);
   document.getElementById('songTitle').firstChild.textContent=s.title+' ';
   document.getElementById('songCountry').textContent=s.country;
-  document.getElementById('songNote').textContent=s.note||'A traditional song, free for everyone to sing.';
+  document.getElementById('songNote').textContent=(s.lines&&s.lines[0]&&s.lines[0].notes)?'A traditional song, free for everyone to sing.':'';
   document.getElementById('dubBtn').dataset.mode=s.state?'speak':'sing';
   showMiniMap(s.state||null);
   document.getElementById('sresults').innerHTML='';
@@ -843,6 +852,7 @@ function openSong(s){
   document.getElementById('findBtn').textContent='🔍 Songs from '+place;
   renderPlaceDubs(s,null); dubSetTag({tagId:'sNowTag',titleId:'sNowTitle'},'','');
   noteRecent(placeRef(s)); syncFav();
+  showPlaceInfo(s);
   const sings=!!(s.lines&&s.lines[0]&&s.lines[0].notes);
   document.getElementById('dubBtn').dataset.label=sings?'🎤 Sing along':'🔊 Say hello'; setDub(false);
   document.getElementById('voiceBtn').hidden=!sings;
@@ -851,6 +861,20 @@ function openSong(s){
   setDub(false);
   sayNow(s.say||(s.country+'. '+s.title.replace(/\(.*\)/,'')),'en-US');
 }
+function showPlaceInfo(s){
+  const box=document.getElementById('placeInfo'); let fact='', chips=[], name='';
+  if(s.state){ const st=s.state; name=st.name; fact=st.fact; chips=[['Capital',st.cap],['Country','India'],['Hello',st.lines[0].text+(st.lines[0].roman?' ('+st.lines[0].roman+')':'')]]; }
+  else { const c=s.countryInfo||WORLD.find(x=>x[0]===s.code); if(!c){ box.hidden=true; return; }
+    name=c[1]; fact=(typeof FACTS!=='undefined'&&FACTS[c[0]])||''; const g=GREET[c[4]]||GREET.en;
+    chips=[['Capital',c[3]],['Continent',c[2]],['Hello',g[1]+(g[2]?' ('+g[2]+')':'')+' = '+g[3]]];
+    if(s.title&&s.lines&&s.lines[0]&&s.lines[0].notes) chips.push(['Song',s.title]); }
+  box.hidden=false;
+  box.innerHTML=`<div class="lead"><span class="dot" style="background:var(--accent)"></span><span><b>Did you know?</b> ${esc(fact)}</span></div>
+    <div class="chips3">${chips.map(([k,v])=>`<span><b>${k}:</b> ${esc(v)}</span>`).join('')}</div>
+    <button class="toggle" onclick="readInfo()">🔊 Read it to me</button>`;
+  box.dataset.say=name+'. '+fact+' The capital is '+chips[0][1]+'.';
+}
+function readInfo(){ const box=document.getElementById('placeInfo'); if('speechSynthesis' in window) speechSynthesis.cancel(); speak(box.dataset.say||'','en-US'); }
 function renderLyrics(s){
   const ly=document.getElementById('lyrics'); ly.innerHTML='';
   const L=s.dubbed&&langOf(s.dubbed.lang);
