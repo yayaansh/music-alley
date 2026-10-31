@@ -151,6 +151,9 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .minimap svg{width:100%;height:auto;overflow:visible}
 .minimap .where{font-size:18px;line-height:1.4}
 .minimap .where b{font-size:22px;display:block}
+.flagnote{display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:15px;line-height:1.35;color:var(--ink)}
+.flagnote img{width:64px;height:43px;border-radius:6px;flex:0 0 auto;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.flagnote b{display:inline;font-size:15px}
 .sub img{height:22px;border-radius:4px}
 .flag-card small.local{font-size:15px;color:var(--ink);font-weight:600}
 .flag-card .songmark{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);border-radius:14px;padding:2px 8px;font-size:13px;font-weight:700;color:var(--accent)}
@@ -338,7 +341,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   <div class="chips" id="contChips"></div>
   <div id="continents"></div>
   <h3 class="sub" id="cont-india"><img src="https://flagcdn.com/w40/in.png" alt=""> Indian states</h3>
-  <p class="tip" style="text-align:left;margin-top:-6px">Indian states don't have official flags, so each one has its own colourful card. Tap a state on the map or a card below.</p>
+  <p class="tip" style="text-align:left;margin-top:-6px">Indian states have no official flags, so each one has a colourful card. A few fly a famous flag of their own, like Maharashtra and Karnataka, and those are shown. Tap a state on the map or a card below.</p>
   <div class="mapwrap"><svg id="indiaMap" role="img" aria-label="Map of India"></svg><div class="maptip" id="mapTip">Tap a state</div></div>
   <div class="grid" id="stateGrid"></div>
 </section>
@@ -568,7 +571,17 @@ const STATES = [
 ];
 const CAPS={ap:[16.51,80.52],ar:[27.08,93.60],as:[26.14,91.79],br:[25.59,85.14],cg:[21.25,81.63],ga:[15.49,73.83],gj:[23.22,72.65],hr:[30.73,76.78],hp:[31.10,77.17],jh:[23.34,85.31],ka:[12.97,77.59],kl:[8.52,76.94],mp:[23.26,77.41],mh:[19.08,72.88],mn:[24.82,93.94],ml:[25.58,91.89],mz:[23.73,92.72],nl:[25.67,94.11],od:[20.30,85.82],pb:[30.73,76.78],rj:[26.91,75.79],sk:[27.33,88.61],tn:[13.08,80.27],tg:[17.39,78.49],tr:[23.83,91.28],up:[26.85,80.95],uk:[30.32,78.03],wb:[22.57,88.36],dl:[28.61,77.21]};
 const NAME2ID={'Andhra Pradesh':'ap','Arunachal Pradesh':'ar','Assam':'as','Bihar':'br','Chhattisgarh':'cg','Goa':'ga','Gujarat':'gj','Haryana':'hr','Himachal Pradesh':'hp','Jharkhand':'jh','Karnataka':'ka','Kerala':'kl','Madhya Pradesh':'mp','Maharashtra':'mh','Manipur':'mn','Meghalaya':'ml','Mizoram':'mz','Nagaland':'nl','Odisha':'od','Punjab':'pb','Rajasthan':'rj','Sikkim':'sk','Tamil Nadu':'tn','Telangana':'tg','Tripura':'tr','Uttar Pradesh':'up','Uttarakhand':'uk','West Bengal':'wb','Delhi':'dl'};
+/* Famous flags that some states fly (India has no official state flags): drawn here so they always load */
+const FLAGS_IN={
+ mh:{name:'Bhagwa Dhwaj',note:'the saffron swallow-tail flag of Chhatrapati Shivaji Maharaj\u2019s Marathas. Maharashtra has no official state flag, but this one flies everywhere.',
+     svg:`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 214'><rect width='320' height='214' fill='#eaf1ff'/><rect x='26' y='28' width='6' height='160' rx='3' fill='#6b4b2a'/><polygon points='32,46 292,46 236,107 292,168 32,168' fill='#f47216'/></svg>`},
+ ka:{name:'Kannada flag',note:'yellow for peace and red for courage, flown on Karnataka Rajyotsava day. Not official, but loved all over Karnataka.',
+     svg:`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 214'><rect width='320' height='107' fill='#ffd500'/><rect y='107' width='320' height='107' fill='#e3000f'/></svg>`},
+ sk:{name:'Old Kingdom of Sikkim flag',note:'white with a red border and a Buddhist wheel, used until Sikkim joined India in 1975.',
+     svg:`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 214'><rect width='320' height='214' fill='#c8102e'/><rect x='14' y='14' width='292' height='186' fill='#ffffff'/><text x='160' y='150' font-size='120' text-anchor='middle' fill='#c8102e'>☸</text></svg>`},
+};
 function cardSvg(st){
+  if(FLAGS_IN[st.id]) return 'data:image/svg+xml;utf8,'+encodeURIComponent(FLAGS_IN[st.id].svg);
   const svg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 214'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${st.c[0]}'/><stop offset='1' stop-color='${st.c[1]}'/></linearGradient></defs><rect width='320' height='214' fill='url(#g)'/><circle cx='160' cy='107' r='78' fill='rgba(255,255,255,0.22)'/><text x='160' y='146' font-size='104' text-anchor='middle'>${st.emoji}</text></svg>`;
   return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
 }
@@ -1404,7 +1417,8 @@ function showMiniMap(st){
   const box=document.getElementById('miniMap');
   if(!st||typeof INDIA_GEO==='undefined'){ box.hidden=true; return; }
   box.hidden=false;
-  box.innerHTML=`<svg role="img" aria-label="Map showing ${st.name}"></svg><div class="where"><b>${st.name}</b>Capital: <b style="display:inline;font-size:20px">${st.cap}</b><br><span style="color:var(--muted)">${st.local}</span></div>`;
+  const fl=FLAGS_IN[st.id];
+  box.innerHTML=`<svg role="img" aria-label="Map showing ${st.name}"></svg><div class="where"><b>${st.name}</b>Capital: <b style="display:inline;font-size:20px">${st.cap}</b><br><span style="color:var(--muted)">${st.local}</span>${fl?`<div class="flagnote"><img src="${cardSvg(st)}" alt=""> <span><b>${fl.name}</b>: ${fl.note}</span></div>`:''}</div>`;
   drawMap(box.querySelector('svg'),{highlight:st.id,interactive:false,label:true});
 }
 try{ drawMap(document.getElementById('indiaMap')); }catch(e){ console.warn('map',e); }
