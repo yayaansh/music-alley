@@ -2,7 +2,7 @@
   "name": "Music Alley",
   "short_name": "Music Alley",
   "start_url": "./index.html",
-  "display": "standalone",
+  "display": "browser",
   "orientation": "any",
   "background_color": "#070a1f",
   "theme_color": "#070a1f",
