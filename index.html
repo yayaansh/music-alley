@@ -238,7 +238,7 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
       <button class="toggle" id="keyBtn" onclick="toggleKeyCard()" title="Search settings">⚙️</button>
     </div>
     <div class="keycard" id="keyCard" hidden>
-      <b>Turn on search (one-time setup, free)</b>
+      <b>Search settings</b> <span style="color:var(--muted)">(only needed if search ever stops working)</span>
       <ol>
         <li>On a computer, open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud: YouTube Data API</a>, sign in with your Google account and click <b>Enable</b> (create a project if it asks).</li>
         <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <b>Create credentials</b> → <b>API key</b>, then copy the key.</li>
@@ -785,10 +785,13 @@ function addYtItem(id,title){
 }
 
 /* ---- YouTube search (needs a free YouTube Data API key, saved on this device) ---- */
-function ytKey(){ try{ return localStorage.getItem('ma_ytkey')||''; }catch(e){ return ''; } }
+// Browser key for the YouTube Data API, restricted in Google Cloud to this app's web address. A key saved in ⚙️ on the device overrides it.
+const DEFAULT_YT_KEY='AIzaSyDj7OKlpVaDNdiWIaLc1lNnU4nuxg2dId4';
+function ytKey(){ try{ return localStorage.getItem('ma_ytkey')||DEFAULT_YT_KEY; }catch(e){ return DEFAULT_YT_KEY; } }
 function toggleKeyCard(force){
   const c=document.getElementById('keyCard'); c.hidden=force===undefined?!c.hidden:!force;
-  document.getElementById('keyStatus').textContent=ytKey()?'A key is saved on this device. Paste a new one to replace it.':'No key saved yet.';
+  let own=''; try{ own=localStorage.getItem('ma_ytkey')||''; }catch(e){}
+  document.getElementById('keyStatus').textContent=own?'This device uses its own key. Paste a new one to replace it.':'Search already works with the built-in key. Only paste a key here if you want this device to use a different one.';
 }
 function saveKey(){
   const k=document.getElementById('ytKey').value.trim();
