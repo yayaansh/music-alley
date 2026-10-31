@@ -60,7 +60,9 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .room.stage{box-shadow:0 10px 40px rgba(255,107,157,.2)}
 
 /* stage (own songs) */
-.player{margin-bottom:16px}
+.player{margin-bottom:16px;position:relative}
+.tap2play{position:absolute;inset:0;margin:auto;width:min(70%,320px);height:96px;border-radius:48px;background:linear-gradient(135deg,var(--accent),var(--pink));color:#1a1033;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:14px;box-shadow:0 14px 40px rgba(0,0,0,.6);animation:pulse 1.2s infinite}
+.tap2play span{font-size:34px}
 .player iframe,.player .filecard{width:100%;aspect-ratio:16/9;border:0;border-radius:22px;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .player .filecard{aspect-ratio:auto;background:var(--card2);padding:22px;display:flex;flex-direction:column;gap:14px;align-items:center}
 .player .filecard b{font-size:24px;text-align:center}
@@ -351,7 +353,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
         <li>Paste it here. It is saved only on this device.</li>
       </ol>
       <div class="addrow">
-        <input id="ytKey" type="password" placeholder="Paste the API key" autocomplete="off">
+        <input id="ytKey" type="text" placeholder="Paste a key (or several, separated by spaces)" autocomplete="off" spellcheck="false">
         <button class="toggle on" onclick="saveKey()">Save</button>
       </div>
       <p class="note" style="margin:6px 0 0;text-align:left" id="keyStatus"></p>
@@ -1031,12 +1033,23 @@ function addYtItem(id,title){
 
 /* ---- YouTube search (needs a free YouTube Data API key, saved on this device) ---- */
 // Browser key for the YouTube Data API, restricted in Google Cloud to this app's web address. A key saved in ⚙️ on the device overrides it.
-const DEFAULT_YT_KEY='AIzaSyDj7OKlpVaDNdiWIaLc1lNnU4nuxg2dId4';
-function ytKey(){ try{ return localStorage.getItem('ma_ytkey')||DEFAULT_YT_KEY; }catch(e){ return DEFAULT_YT_KEY; } }
+const DEFAULT_YT_KEYS=['AIzaSyDj7OKlpVaDNdiWIaLc1lNnU4nuxg2dId4']; // more keys = more free searches per day (each Google Cloud project gets its own daily allowance)
+function ytKeys(){ let own=''; try{ own=localStorage.getItem('ma_ytkey')||''; }catch(e){} return [...own.split(/[\s,]+/).filter(Boolean),...DEFAULT_YT_KEYS].filter((k,i,a)=>a.indexOf(k)===i); }
+function ytKey(){ return ytKeys()[0]||''; }
+let quotaOutUntil=0;
+function quotaResetText(){ // the allowance resets at midnight in California
+  const now=new Date(); const la=new Date(now.toLocaleString('en-US',{timeZone:'America/Los_Angeles'})); const diff=now-la;
+  const nextLa=new Date(la); nextLa.setHours(24,0,0,0); const reset=new Date(nextLa.getTime()+diff);
+  return reset.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+(reset.getDate()!==now.getDate()?' tomorrow':' today');
+}
+/* search results are remembered for a week so repeat taps cost nothing */
+let ytCache={}; try{ ytCache=JSON.parse(localStorage.getItem('ma_ytcache')||'{}'); }catch(e){}
+function cacheGet(k){ const c=ytCache[k]; return (c&&Date.now()-c.t<7*864e5)?c.items:null; }
+function cachePut(k,items){ ytCache[k]={t:Date.now(),items}; const keys=Object.keys(ytCache); if(keys.length>300) keys.sort((a,b)=>ytCache[a].t-ytCache[b].t).slice(0,keys.length-300).forEach(x=>delete ytCache[x]); try{ localStorage.setItem('ma_ytcache',JSON.stringify(ytCache)); }catch(e){} }
 function toggleKeyCard(force){
   const c=document.getElementById('keyCard'); c.hidden=force===undefined?!c.hidden:!force;
   let own=''; try{ own=localStorage.getItem('ma_ytkey')||''; }catch(e){}
-  document.getElementById('keyStatus').textContent=own?'This device uses its own key. Paste a new one to replace it.':'Search already works with the built-in key. Only paste a key here if you want this device to use a different one.';
+  document.getElementById('keyStatus').textContent=(own?'This device has '+own.split(/[\s,]+/).filter(Boolean).length+' extra key(s). ':'Search works with the built-in key. ')+'Each key allows about 100 searches a day; adding a key from another Google Cloud project adds another 100.';
 }
 function saveKey(){
   const k=document.getElementById('ytKey').value.trim();
@@ -1055,25 +1068,34 @@ async function ytSearch(q,box,opts={}){
   if(!box) box=document.getElementById('ytResults');
   const playerId=box.dataset.player||'player';
   if(!q) return;
-  const key=ytKey();
-  if(!key){ toggleKeyCard(true); box.innerHTML='<div class="rmsg">Search needs a one-time setup. Follow the three steps above.</div>'; return; }
+  const keys=ytKeys();
+  if(!keys.length){ toggleKeyCard(true); box.innerHTML='<div class="rmsg">Search needs a one-time setup. Follow the three steps above.</div>'; return; }
   if(!opts.keep) box.innerHTML='<div class="rmsg">Searching…</div>';
   try{
-    const u='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults='+(opts.max||12)+'&q='+encodeURIComponent(q)+(opts.extra||'')+'&key='+encodeURIComponent(key);
-    const r=await fetch(u); const j=await r.json();
-    if(j.error){
-      const m=j.error.message||'';
-      box.innerHTML='<div class="rmsg">'+(r.status===403&&/quota/i.test(m)?'Today’s free search limit is used up. Try again tomorrow, or paste a link instead.':'Search is not working: '+esc(m)+'. Check the key in ⚙️.')+'</div>';
-      if(r.status===400||r.status===403&&!/quota/i.test(m)) toggleKeyCard(true);
-      return;
+    const ck=q+'|'+(opts.extra||'')+'|'+(opts.max||12);
+    let list=cacheGet(ck);
+    if(!list){
+      let lastErr=null, quota=false;
+      for(const key of keys){
+        const u='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults='+(opts.max||12)+'&q='+encodeURIComponent(q)+(opts.extra||'')+'&key='+encodeURIComponent(key);
+        const r=await fetch(u); const j=await r.json();
+        if(j.error){ lastErr=j.error.message||'error'; quota=/quota/i.test(lastErr); if(quota) continue; break; }
+        list=(j.items||[]).filter(it=>it.id&&it.id.videoId).map(it=>({id:it.id.videoId,title:decodeHtml(it.snippet.title),ch:decodeHtml(it.snippet.channelTitle||''),desc:(it.snippet.description||'').slice(0,300),thumb:(it.snippet.thumbnails.medium||it.snippet.thumbnails.default||{}).url||''}));
+        cachePut(ck,list); lastErr=null; break;
+      }
+      if(!list){
+        if(quota){ quotaOutUntil=Date.now()+36e5; box.innerHTML='<div class="rmsg">Today\u2019s free search allowance is used up. It comes back at about <b>'+quotaResetText()+'</b>. Songs and videos already remembered still play.</div>'; }
+        else { box.innerHTML='<div class="rmsg">Search is not working: '+esc(lastErr||'')+'. Check the key in ⚙️.</div>'; toggleKeyCard(true); }
+        return;
+      }
     }
     const have=new Set([...box.querySelectorAll('.rcard')].map(c=>c.dataset.id));
-    const items=(j.items||[]).filter(it=>it.id&&it.id.videoId&&!have.has(it.id.videoId)&&kidSafe(it.snippet));
+    const items=list.filter(it=>!have.has(it.id)&&kidSafe({title:it.title,channelTitle:it.ch,description:it.desc}));
     if(!items.length){ if(!opts.keep||!have.size) box.innerHTML='<div class="rmsg">Nothing found. Try different words.</div>'; return; }
     if(!opts.keep) box.innerHTML=''; else box.querySelectorAll('.rmsg.wait').forEach(e=>e.remove());
     items.forEach(it=>{
-      const id=it.id.videoId, title=decodeHtml(it.snippet.title), ch=decodeHtml(it.snippet.channelTitle||'');
-      const thumb=(it.snippet.thumbnails.medium||it.snippet.thumbnails.default||{}).url||`https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+      const id=it.id, title=it.title, ch=it.ch;
+      const thumb=it.thumb||`https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
       const d=document.createElement('div'); d.className='rcard'+(ytList.some(x=>x.id===id)?' added':''); d.dataset.id=id;
       d.innerHTML=`<img src="${thumb}" alt=""><div class="rt">${esc(title)}</div><div class="rc">${esc(ch)}</div>
         <div class="ra"><button class="play">▶ Play</button><button class="add">${opts.pickLabel?esc(opts.pickLabel):(ytList.some(x=>x.id===id)?'✓ Added':'＋ Add')}</button></div>`;
@@ -1134,7 +1156,7 @@ function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 function playerHtml(item,cc){
   if(item.type==='yt'){
     const sub=cc?`&cc_load_policy=1&cc_lang_pref=${cc}&hl=${cc}`:'';
-    const api='&enablejsapi=1'+(/^https?:/.test(location.protocol)?'&origin='+encodeURIComponent(location.origin):'');
+    const api='&enablejsapi=1&playsinline=1'+(/^https?:/.test(location.protocol)?'&origin='+encodeURIComponent(location.origin):'');
     return `<iframe src="https://www.youtube.com/embed/${item.id}?autoplay=1&rel=0${sub}${api}" title="${esc(item.title||'')}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
   }
   const f=fileList.find(x=>x.id===item.id);
@@ -1218,7 +1240,7 @@ async function dubRun(ctx,lang,queries,force){
   res.innerHTML='<div class="rmsg">Looking for the '+L[1]+' version…</div>';
   dubSetTag(ctx,'Finding '+L[1]+'…','');
   for(let k=0;k<queries.length;k++){
-    if(k) res.insertAdjacentHTML('beforeend','<div class="rmsg wait">Looking for more…</div>');
+    if(k){ if(res.querySelectorAll('.rcard').length>=4) break; res.insertAdjacentHTML('beforeend','<div class="rmsg wait">Looking for more…</div>'); }
     await ytSearch(queries[k],res,{...opts,keep:k>0});
   }
   // rank: titles that name the language or say "dub" first; never the original itself
@@ -1313,11 +1335,20 @@ async function watchCaptions(playerId){
   const finish=p=>{ const first=rec.tracks===null; const list=tracklist(p); if(first||list.length>(rec.tracks||[]).length) rec.tracks=list; applyTrack(p,rec.tracks,subLang[playerId]); if(first) refreshLangUI(playerId); };
   try{
     rec.player=new YT.Player(f,{events:{
-      onReady:e=>{ try{ e.target.loadModule('captions'); }catch(x){} setTimeout(()=>finish(e.target),4000); },
+      onReady:e=>{ try{ e.target.loadModule('captions'); }catch(x){} setTimeout(()=>finish(e.target),4000);
+        setTimeout(()=>{ try{ const st=e.target.getPlayerState(); if(ytPlayers[playerId]===rec&&st!==1&&st!==3&&st!==0) showTapToPlay(playerId,e.target); }catch(x){} },1200); },
+      onStateChange:e=>{ if(e.data===1) hideTapToPlay(playerId); },
       onApiChange:e=>finish(e.target)
     }});
   }catch(e){ rec.tracks=[]; refreshLangUI(playerId); }
 }
+function showTapToPlay(playerId,player){
+  const p=document.getElementById(playerId); if(!p||p.querySelector('.tap2play')) return;
+  const b=document.createElement('button'); b.className='tap2play'; b.innerHTML='<span>▶</span>Tap to play';
+  b.onclick=ev=>{ ev.stopPropagation(); try{ player.playVideo(); }catch(e){} hideTapToPlay(playerId); };
+  p.appendChild(b);
+}
+function hideTapToPlay(playerId){ const p=document.getElementById(playerId); if(p) p.querySelectorAll('.tap2play').forEach(b=>b.remove()); }
 function refreshLangUI(playerId){
   if(playerId==='player'&&stageNow) showDubBar(stageNow,subLang.player||null);
   if(playerId==='splayer'&&songNow&&document.getElementById('song').classList.contains('active')) renderPlaceDubs(songNow,subLang.splayer||null);
