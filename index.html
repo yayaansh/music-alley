@@ -226,6 +226,29 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .plyrics .orig{font-size:19px}
 .tip{color:var(--muted);text-align:center;font-size:16px;margin:4px 0 8px}
 @media (max-width:480px){.topbar h2{font-size:21px}.dub{font-size:26px;min-height:68px}}
+/* planet screens + live cards */
+.pball{width:52px;height:52px;border-radius:50%;flex:0 0 auto;box-shadow:inset -10px -8px 18px rgba(0,0,0,.45),0 0 18px rgba(255,255,255,.12)}
+.live{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:0 0 16px}
+.live .fact{margin:0;align-items:flex-start;line-height:1.4;font-size:16px}
+.live .fact img{width:120px;height:120px;border-radius:50%;object-fit:cover;flex:0 0 auto;box-shadow:0 0 24px rgba(76,201,240,.35)}
+.live .muted{color:var(--muted);font-size:13px}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.gallery:empty{display:none}
+.gallery button{padding:0;border-radius:16px;overflow:hidden;background:var(--card2);aspect-ratio:1;position:relative}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.gallery .cap{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:12px;padding:16px 8px 6px;text-align:left;line-height:1.2}
+.gallery .rmsg{grid-column:1/-1}
+.bigpic{position:fixed;inset:0;z-index:60;background:rgba(3,5,20,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;cursor:pointer}
+.bigpic[hidden]{display:none}
+.bigpic img{max-width:100%;max-height:78vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.bigpic p{margin:12px 0 0;max-width:720px;text-align:center;font-size:16px;line-height:1.4}
+.bigpic small{color:var(--muted)}
+.fact.info ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.fact.info li{display:flex;gap:10px;line-height:1.4}
+.fact.info li::before{content:"✦";color:var(--accent)}
+.weigh{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:17px}
+.weigh input{width:90px;min-height:48px;border-radius:24px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;font:inherit;font-size:20px;text-align:center}
+.weigh .out{font-size:20px;font-weight:700;color:var(--accent)}
 /* animals */
 .room.animals .glow{background:#ffd166}
 .room.animals{box-shadow:0 10px 40px rgba(255,209,102,.18)}
@@ -276,7 +299,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     <button class="room planets" onclick="go('planets')">
       <span class="big">🪐</span>
       <h3>Planet Alley</h3>
-      <p>Every planet is an instrument. Tap them to play, and sing the planet song!</p>
+      <p>Play the planets like instruments, visit each one for NASA photos and trivia, and see where the Space Station is right now.</p>
       <span class="glow"></span>
     </button>
     <button class="room stage" onclick="go('stage')">
@@ -393,11 +416,36 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   <div class="space" id="space"></div>
   <div class="fact" id="fact"><span class="dot" style="background:#ffb703"></span><span>Tap the Sun or any planet to hear its sound and learn a space fact!</span></div>
   <div class="player" id="pplayer"></div>
+  <div class="live" id="liveCards"></div>
   <div class="controls">
     <button class="dub" id="planetDub" onclick="togglePlanetSong()">▶ Planet song</button>
     <button class="toggle" id="pslowBtn" onclick="toggleOpt('slow',this)">🐢 Slow</button>
   </div>
   <div class="plyrics" id="plyrics"></div>
+</section>
+
+<!-- ONE PLANET -->
+<section id="planet" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('planets')" aria-label="Back">←</button>
+    <span class="pball" id="qBall"></span>
+    <h2 id="qName">Mars <small id="qHindi"></small></h2>
+  </div>
+  <div class="controls">
+    <button class="dub" onclick="planetVideo()">▶ Video</button>
+    <button class="toggle" onclick="planetSongQ()">🎵 Song</button>
+    <button class="toggle" onclick="planetPhotos()">🖼️ NASA photos</button>
+    <button class="toggle" onclick="planetSay()">🔊 Say it</button>
+    <button class="toggle" onclick="planetNote()">🎹 Its note</button>
+    <button class="toggle fav" id="qFavBtn" onclick="toggleFav()" aria-label="Favourite">🤍</button>
+  </div>
+  <div class="dubhead" style="margin:0 0 10px"><span class="tag isdub" id="qNowTag" hidden></span><b id="qNowTitle"></b></div>
+  <div class="player" id="qplayer"></div>
+  <div class="results" id="qresults" data-player="qplayer"></div>
+  <div class="gallery" id="qGallery"></div>
+  <div class="bigpic" id="qBig" hidden onclick="this.hidden=true"></div>
+  <div class="fact info" id="qInfo"></div>
+  <div class="fact info" id="qWeigh"></div>
 </section>
 
 <!-- ANIMALS -->
@@ -769,9 +817,12 @@ function go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(id!=='stage'){ stageNow=null; const db=document.getElementById('dubbar'); if(db) db.hidden=true; }
+  if(id==='planets'&&typeof loadLive==='function') setTimeout(loadLive,0);
+  const bp=document.getElementById('qBig'); if(bp) bp.hidden=true;
   document.querySelectorAll('.player').forEach(p=>p.innerHTML='');
   const sr=document.getElementById('sresults'); if(sr) sr.innerHTML='';
   const ar=document.getElementById('aresults'); if(ar) ar.innerHTML='';
+  const qr=document.getElementById('qresults'); if(qr) qr.innerHTML='';
   window.scrollTo(0,0);
   syncToggles();
 }
@@ -923,6 +974,7 @@ PLANETS.forEach(p=>{
     const f=document.getElementById('fact');
     const pin=pinOf('planet:'+p.name);
     f.innerHTML=`<span class="dot" style="background:${p.color}"></span><span><b>${p.name}:</b> ${p.fact}</span>`
+      +`<button class="toggle on" onclick="openPlanet('${p.name}')">🚀 Visit ${p.name}</button>`
       +(pin?`<button class="toggle" onclick="togglePinPlayer('pplayer','planet:${p.name}')">🌈 ${esc(pin.title)}</button>`:'');
   };
   d.querySelector('.ball').addEventListener('pointerdown',hit);
@@ -1447,6 +1499,102 @@ function showMiniMap(st){
 }
 try{ drawMap(document.getElementById('indiaMap')); }catch(e){ console.warn('map',e); }
 
+/* ========= ONE PLANET: trivia, numbers, video, song, NASA photos, weight ========= */
+const PLANET_INFO={
+ Sun:{hi:'सूर्य (Surya)',g:27.9,day:'spins once in about 27 days',year:'the planets go round it',moons:'8 planets',size:'109 Earths wide',q:'sun solar flare SDO',facts:['The Sun is a star, a giant ball of hot gas. Its light takes about 8 minutes to reach Earth.','About 1.3 million Earths could fit inside the Sun.','The Sun is about 4.6 billion years old and is halfway through its life.']},
+ Mercury:{hi:'बुध (Budh)',g:.38,day:'59 Earth days',year:'88 Earth days',moons:'0',size:'0.4 × Earth',q:'Mercury planet MESSENGER',facts:['Mercury is the smallest planet and the closest to the Sun.','A year on Mercury is only 88 days, but one day lasts 59 Earth days.','It has no air to hold heat, so it is boiling by day and freezing at night.']},
+ Venus:{hi:'शुक्र (Shukra)',g:.91,day:'243 Earth days',year:'225 Earth days',moons:'0',size:'0.95 × Earth',q:'Venus planet',facts:['Venus is the hottest planet, hotter than Mercury, because thick clouds trap the heat.','It spins backwards compared with most planets, so there the Sun rises in the west.','A day on Venus is longer than its year.']},
+ Earth:{hi:'पृथ्वी (Prithvi)',g:1,day:'24 hours',year:'365 days',moons:'1, the Moon',size:'1 × Earth',q:'Earth from space',facts:['Earth is the only planet we know with oceans of liquid water and life.','About 71 percent of Earth is covered by water.','Earth spins at about 1,600 km per hour at the equator, yet we feel nothing.']},
+ Mars:{hi:'मंगल (Mangal)',g:.38,day:'24.6 hours',year:'687 Earth days',moons:'2, Phobos and Deimos',size:'0.5 × Earth',q:'Mars planet surface',facts:['Mars is red because its soil is full of rusty iron.','Olympus Mons on Mars is the tallest volcano in the solar system, almost three times the height of Everest.','Its two tiny moons are shaped like potatoes.']},
+ Jupiter:{hi:'बृहस्पति (Brihaspati)',g:2.34,day:'10 hours',year:'12 Earth years',moons:'95 known',size:'11 × Earth',q:'Jupiter planet Juno',facts:['Jupiter is the biggest planet. More than 1,300 Earths could fit inside it.','The Great Red Spot is a storm bigger than Earth that has raged for hundreds of years.','Jupiter spins so fast that a day there lasts only 10 hours.']},
+ Saturn:{hi:'शनि (Shani)',g:1.06,day:'10.7 hours',year:'29 Earth years',moons:'146 known',size:'9 × Earth',q:'Saturn planet Cassini',facts:['Saturn’s rings are billions of pieces of ice and rock, some as small as sand and some as big as houses.','Saturn is so light that it would float in a giant bathtub.','Its moon Titan has lakes and rivers of liquid methane.']},
+ Uranus:{hi:'अरुण (Arun)',g:.92,day:'17 hours',year:'84 Earth years',moons:'28 known',size:'4 × Earth',q:'Uranus planet',facts:['Uranus spins on its side, like a rolling ball, probably after a giant crash long ago.','It is the coldest planet, even though Neptune is farther away.','Uranus is blue-green because of methane gas and has faint rings.']},
+ Neptune:{hi:'वरुण (Varun)',g:1.19,day:'16 hours',year:'165 Earth years',moons:'16 known',size:'3.9 × Earth',q:'Neptune planet Voyager',facts:['Neptune has the fastest winds in the solar system, over 2,000 km per hour.','It was the first planet found by maths before anyone saw it in a telescope.','One year on Neptune lasts 165 Earth years.']},
+};
+let planetNow=null;
+function openPlanet(name){
+  const p=PLANETS.find(x=>x.name===name), info=PLANET_INFO[name]; if(!p||!info) return;
+  planetNow=p; ac(); go('planet');
+  const ball=document.getElementById('qBall'); ball.style.background=`radial-gradient(circle at 35% 30%,${lighten(p.color)},${p.color} 60%,${darken(p.color)})`;
+  document.getElementById('qName').firstChild.textContent=name+' ';
+  document.getElementById('qHindi').textContent=info.hi;
+  dubSetTag({tagId:'qNowTag',titleId:'qNowTitle'},'',''); document.getElementById('qGallery').innerHTML=''; document.getElementById('qresults').innerHTML=''; document.getElementById('qplayer').innerHTML='';
+  document.getElementById('qInfo').innerHTML=`<div class="lead"><span class="dot" style="background:${p.color}"></span><span><b>Did you know?</b></span></div>
+    <ul>${info.facts.map(f=>`<li><span>${esc(f)}</span></li>`).join('')}</ul>
+    <div class="chips3"><span><b>A day:</b> ${info.day}</span><span><b>A year:</b> ${info.year}</span><span><b>Moons:</b> ${info.moons}</span><span><b>Size:</b> ${info.size}</span></div>
+    <button class="toggle" onclick="readPlanet()">🔊 Read it to me</button>`;
+  renderWeigh();
+  noteRecent({type:'planet',id:name,label:name,emoji:p.sun?'☀️':'🪐'}); syncFav();
+  sayNow(name,'en-US');
+}
+function readPlanet(){ const info=PLANET_INFO[planetNow.name]; if('speechSynthesis' in window) speechSynthesis.cancel(); speak(planetNow.name+'. '+info.facts.join(' '),'en-US'); }
+function planetSay(){ const info=PLANET_INFO[planetNow.name]; if('speechSynthesis' in window) speechSynthesis.cancel(); speak(planetNow.name,'en-US').then(()=>speak(info.hi.split(' (')[0],'hi-IN',info.hi.replace(/.*\(|\)/g,''))); }
+function planetNote(){ const p=planetNow; ac(); tone(noteFreq(p.note),ctx.currentTime,1.2,INST[p.inst],null,1); const b=document.getElementById('qBall'); b.style.transform='scale(1.15)'; setTimeout(()=>b.style.transform='',250); }
+function planetCtx(kind){
+  const key='planet:'+planetNow.name+':'+kind;
+  return {playerId:'qplayer',resultsId:'qresults',tagId:'qNowTag',titleId:'qNowTitle',excludeId:null,extra:'&relevanceLanguage=en&regionCode=IN',
+    stored:()=>placeDubs[key]||null, remember:(l,v)=>{ placeDubs[key]=v; savePlaceDubs(); }, forget:()=>{ delete placeDubs[key]; savePlaceDubs(); },
+    onLang:()=>{}, start:()=>kind==='video'?planetVideo():planetSongQ()};
+}
+function planetVideo(){ const n=planetNow.name; stopAll(); document.getElementById('qGallery').innerHTML=''; return dubRun(planetCtx('video'),'orig',[(n==='Sun'?'the Sun':n+' planet')+' for kids', n+' explained for children']); }
+function planetSongQ(){ const n=planetNow.name; stopAll(); document.getElementById('qGallery').innerHTML=''; return dubRun(planetCtx('song'),'orig',[n+' song for kids', 'planet '+n+' nursery rhyme']); }
+async function planetPhotos(){
+  const info=PLANET_INFO[planetNow.name], g=document.getElementById('qGallery');
+  stopAll(); document.getElementById('qplayer').innerHTML=''; document.getElementById('qresults').innerHTML=''; dubSetTag({tagId:'qNowTag',titleId:'qNowTitle'},'','');
+  g.innerHTML='<div class="rmsg">Asking NASA for photos…</div>';
+  try{
+    const r=await fetch('https://images-api.nasa.gov/search?q='+encodeURIComponent(info.q)+'&media_type=image&page_size=30');
+    const j=await r.json(); const items=(j.collection.items||[]).filter(it=>it.links&&it.links[0]&&it.data&&it.data[0]&&kidSafe({title:it.data[0].title,channelTitle:'',description:it.data[0].description||''})).slice(0,12);
+    if(!items.length){ g.innerHTML='<div class="rmsg">NASA had no photos for that right now.</div>'; return; }
+    g.innerHTML='';
+    items.forEach(it=>{
+      const d=it.data[0], thumb=it.links[0].href; const b=document.createElement('button');
+      b.innerHTML=`<img src="${thumb}" alt="" loading="lazy"><span class="cap">${esc((d.title||'').slice(0,60))}</span>`;
+      b.onclick=async()=>{ let big=thumb; try{ const list=await (await fetch(it.href)).json(); big=list.find(u=>/~medium\.jpg$/i.test(u))||list.find(u=>/~large\.jpg$/i.test(u))||thumb; }catch(e){}
+        const bp=document.getElementById('qBig'); bp.innerHTML=`<img src="${big}" alt=""><p>${esc((d.title||''))}<br><small>${esc((d.description||'').slice(0,220))}${(d.description||'').length>220?'…':''} · NASA, ${(d.date_created||'').slice(0,4)}</small></p>`; bp.hidden=false; };
+      g.appendChild(b);
+    });
+    g.insertAdjacentHTML('beforeend','<div class="rmsg">Real photos from NASA. Tap one to see it big; tap again to close.</div>');
+  }catch(e){ g.innerHTML='<div class="rmsg">Could not reach NASA right now. Is the internet on?</div>'; }
+}
+let kgEarth=40; try{ kgEarth=+localStorage.getItem('ma_kg')||40; }catch(e){}
+function renderWeigh(){
+  const info=PLANET_INFO[planetNow.name]; const box=document.getElementById('qWeigh');
+  box.innerHTML=`<div class="lead"><span class="dot" style="background:var(--pink)"></span><span><b>How heavy would you be on ${planetNow.name}?</b> Gravity is different everywhere.</span></div>
+    <div class="weigh"><span>On Earth I weigh</span><input type="number" id="qKg" min="1" max="300" value="${kgEarth}" inputmode="numeric"><span>kg, so on ${planetNow.name} I would weigh</span><span class="out" id="qOut"></span></div>`;
+  const upd=()=>{ const v=Math.max(1,Math.min(300,+document.getElementById('qKg').value||0)); kgEarth=v; try{ localStorage.setItem('ma_kg',v); }catch(e){} document.getElementById('qOut').textContent=Math.round(v*info.g)+' kg'+(info.g>2?' 😮':info.g<.5?' 🪶':''); };
+  document.getElementById('qKg').oninput=upd; upd();
+}
+
+/* ========= LIVE: the Space Station right now, and the newest photo of the whole Earth ========= */
+function planetsActive(){ return document.getElementById('planets').classList.contains('active'); }
+let issTimer=null;
+function loadLive(){
+  const box=document.getElementById('liveCards');
+  if(!box.querySelector('#issCard')) box.innerHTML='<div class="fact" id="issCard"><span class="dot" style="background:var(--cyan)"></span><span>🛰️ Finding the Space Station…</span></div><div class="fact" id="earthCard"><span class="dot" style="background:var(--green)"></span><span>🌍 Fetching the newest photo of Earth…</span></div>';
+  clearTimeout(issTimer); issTick(); earthPhoto();
+}
+async function issTick(){
+  if(!planetsActive()) return; const card=document.getElementById('issCard'); if(!card) return;
+  try{
+    const j=await (await fetch('https://api.wheretheiss.at/v1/satellites/25544')).json();
+    let where='the ocean';
+    try{ const g=await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${j.latitude}&longitude=${j.longitude}&localityLanguage=en`)).json();
+      where=g.countryName||((g.localityInfo&&g.localityInfo.informative||[]).find(x=>/ocean|sea|bay|gulf/i.test(x.name||''))||{}).name||'the ocean'; }catch(e){}
+    card.innerHTML=`<span class="dot" style="background:var(--cyan)"></span><span>🛰️ <b>The Space Station right now</b> is flying over <b>${esc(where)}</b>, about ${Math.round(j.altitude)} km up, at ${Math.round(j.velocity).toLocaleString()} km/h. ${j.visibility==='daylight'?'It is in sunlight.':'It is in Earth’s shadow.'}<br><span class="muted">Astronauts live there and see 16 sunrises a day · updates every 10 seconds</span></span>`;
+  }catch(e){ card.innerHTML='<span class="dot" style="background:var(--cyan)"></span><span>🛰️ Could not reach the Space Station tracker right now.</span>'; }
+  issTimer=setTimeout(issTick,10000);
+}
+async function earthPhoto(){
+  const card=document.getElementById('earthCard'); if(!card) return;
+  try{
+    const list=await (await fetch('https://epic.gsfc.nasa.gov/api/natural')).json(); if(!list.length) throw 0;
+    const it=list[Math.floor(list.length/2)]; const d=it.date.slice(0,10); const url=`https://epic.gsfc.nasa.gov/archive/natural/${d.replace(/-/g,'/')}/jpg/${it.image}.jpg`;
+    card.innerHTML=`<img src="${url}" alt="The whole Earth"><span>🌍 <b>The whole Earth, photographed from 1.5 million km away</b> by NASA’s EPIC camera on ${new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}. The lit side faced the camera. Can you spot India?</span>`;
+    card.querySelector('img').onclick=()=>{ const bp=document.getElementById('qBig'); bp.innerHTML=`<img src="${url}" alt=""><p>Earth from the DSCOVR spacecraft, ${d}<br><small>NASA EPIC camera. Tap to close.</small></p>`; bp.hidden=false; };
+  }catch(e){ card.innerHTML='<span class="dot" style="background:var(--green)"></span><span>🌍 NASA’s Earth camera is not answering right now.</span>'; }
+}
+
 /* ========= ANIMAL ALLEY ========= */
 const ANIMALS=[
  // birds (her favourites first)
@@ -1529,15 +1677,17 @@ function placeRef(s){
 }
 function currentRef(){
   if(document.getElementById('animal').classList.contains('active')&&animalNow) return {type:'animal',id:animalNow.id,label:animalNow.name,emoji:animalNow.e};
+  if(document.getElementById('planet').classList.contains('active')&&planetNow) return {type:'planet',id:planetNow.name,label:planetNow.name,emoji:planetNow.sun?'☀️':'🪐'};
   if(document.getElementById('song').classList.contains('active')&&songNow) return placeRef(songNow);
   return null;
 }
 function noteRecent(r){ recents=[r,...recents.filter(x=>refKey(x)!==refKey(r))].slice(0,8); saveHome(); }
 function isFav(r){ return !!r&&favs.some(x=>refKey(x)===refKey(r)); }
 function toggleFav(){ const r=currentRef(); if(!r) return; if(isFav(r)) favs=favs.filter(x=>refKey(x)!==refKey(r)); else favs=[r,...favs].slice(0,20); saveHome(); syncFav(); }
-function syncFav(){ const r=currentRef(); ['favBtn','aFavBtn'].forEach(id=>{ const b=document.getElementById(id); if(b){ b.textContent=isFav(r)?'❤️':'🤍'; b.classList.toggle('on',isFav(r)); } }); }
+function syncFav(){ const r=currentRef(); ['favBtn','aFavBtn','qFavBtn'].forEach(id=>{ const b=document.getElementById(id); if(b){ b.textContent=isFav(r)?'❤️':'🤍'; b.classList.toggle('on',isFav(r)); } }); }
 function openRef(r){
   if(r.type==='animal'){ const a=ANIMALS.find(x=>x.id===r.id); if(a) openAnimal(a); }
+  else if(r.type==='planet'){ openPlanet(r.id); }
   else if(r.type==='state'){ const st=STATES.find(x=>x.id===r.id); if(st) openSong(stateAsSong(st)); }
   else if(r.type==='country'){ const c=WORLD.find(x=>x[0]===r.code); if(!c) return; const sg=songFor(c[0]); openSong(sg?{...sg,countryInfo:c,note:'Capital: '+c[3]+' · '+c[2]+'. A traditional song, free for everyone to sing.'}:countryAsSong(c)); }
   else if(r.type==='song'){ const sg=SONGS.find(x=>x.id===r.id); if(sg) openSong(sg); }
