@@ -254,6 +254,22 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .weigh{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:17px}
 .weigh input{width:90px;min-height:48px;border-radius:24px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;font:inherit;font-size:20px;text-align:center}
 .weigh .out{font-size:20px;font-weight:700;color:var(--accent)}
+/* karaoke */
+.kbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:55;width:min(96vw,620px);background:#141838;border:2px solid rgba(255,255,255,.14);border-radius:28px;padding:14px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:pop .25s ease}
+.kbar[hidden]{display:none}
+.kcount{font-size:96px;font-weight:700;text-align:center;line-height:1;padding:10px 0 16px;color:var(--accent)}
+.kcount[hidden]{display:none}
+.krow{display:flex;align-items:center;gap:12px}
+.kdot{width:16px;height:16px;border-radius:50%;background:#ff4d6d;box-shadow:0 0 12px #ff4d6d;animation:pulse 1s infinite;flex:0 0 auto}
+#ktime{font-size:22px;min-width:58px}
+.kmeter{flex:1;height:18px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden}
+#klevel{height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--accent),var(--pink));transition:width .08s}
+.kstop{min-height:52px;padding:0 20px;border-radius:26px;background:#ff4d6d;color:#fff;font-weight:700;font-size:18px}
+.kdone{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.kmsg{font-size:22px;font-weight:700;text-align:center}
+.kdone audio{width:100%}
+.kbtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.scard .thumb.emoji.rec{background:linear-gradient(135deg,#ff4d6d,var(--purple))}
 /* animals */
 .room.animals .glow{background:#ffd166}
 .room.animals{box-shadow:0 10px 40px rgba(255,209,102,.18)}
@@ -337,7 +353,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   </div>
   <div class="player" id="player"></div>
   <div class="dubbar" id="dubbar" hidden>
-    <div class="dubhead"><span class="tag" id="nowTag">Original</span><b id="nowTitle"></b></div>
+    <div class="dubhead"><span class="tag" id="nowTag">Original</span><b id="nowTitle"></b><button class="toggle" style="margin-left:auto" onclick="karaokeStart('video')">🎤 Sing &amp; record</button></div>
     <div class="dublabel">🎙️ Dub it in…</div>
     <div class="dublangs" id="dubLangs"></div>
     <p class="dubnote">Switches this video’s subtitles to the language you pick (✓ means the video has that language). A dub voice exists only when the video offers one under ⚙️ → Audio track.</p>
@@ -393,6 +409,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     <button class="dub" id="realBtn" onclick="playReal()">▶ Play the song</button>
     <button class="toggle" id="dubBtn" data-label="🎤 Sing along" onclick="toggleDub()">🎤 Sing along</button>
     <button class="toggle on" id="voiceBtn" onclick="toggleOpt('voice',this)">🗣️ Voice</button>
+    <button class="toggle" id="karaokeBtn" onclick="karaokeStart('song')">🎤 Karaoke</button>
     <button class="toggle" id="slowBtn" onclick="toggleOpt('slow',this)">🐢 Slow</button>
     <button class="toggle" id="teachBtn" onclick="toggleOpt('teach',this)">🎓 Teach me</button>
     <button class="toggle" id="pinPlayBtn" hidden onclick="togglePinPlayer('splayer',pinKeyNow)">🌈 Mihu's song</button>
@@ -483,6 +500,21 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
 </section>
 
 <button class="stopall" id="stopAll" hidden onclick="stopEverything()">■ Stop</button>
+
+<!-- KARAOKE -->
+<div class="kbar" id="kbar" hidden>
+  <div class="kcount" id="kcount" hidden>3</div>
+  <div class="krow" id="krec">
+    <span class="kdot"></span><b id="ktime">0:00</b>
+    <div class="kmeter"><div id="klevel"></div></div>
+    <button class="kstop" onclick="karaokeStop()">■ Stop</button>
+  </div>
+  <div class="kdone" id="kdone" hidden>
+    <div class="kmsg" id="kmsg">🎉 Lovely singing!</div>
+    <audio id="kaudio" controls></audio>
+    <div class="kbtns"><button class="toggle on" onclick="karaokeKeep()">💾 Keep it</button><button class="toggle" onclick="karaokeAgain()">🔁 Sing again</button><button class="toggle" onclick="karaokeClose()">🗑️ Delete</button></div>
+  </div>
+</div>
 
 <!-- PIN PICKER -->
 <div class="modal" id="pinModal" onclick="if(event.target===this)closePin()">
@@ -825,6 +857,7 @@ function go(id){
   if(id!=='stage'){ stageNow=null; const db=document.getElementById('dubbar'); if(db) db.hidden=true; }
   if(id==='planets'&&typeof loadLive==='function') setTimeout(loadLive,0);
   const bp=document.getElementById('qBig'); if(bp) bp.hidden=true;
+  if(typeof K!=='undefined'&&K.on) karaokeStop();
   document.querySelectorAll('.player').forEach(p=>p.innerHTML='');
   const sr=document.getElementById('sresults'); if(sr) sr.innerHTML='';
   const ar=document.getElementById('aresults'); if(ar) ar.innerHTML='';
@@ -912,7 +945,7 @@ function openSong(s){
   showPlaceInfo(s);
   const sings=!!(s.lines&&s.lines[0]&&s.lines[0].notes);
   document.getElementById('dubBtn').dataset.label=sings?'🎤 Sing along':'🔊 Say hello'; setDub(false);
-  document.getElementById('voiceBtn').hidden=!sings;
+  document.getElementById('voiceBtn').hidden=!sings; document.getElementById('karaokeBtn').hidden=!sings;
   document.getElementById('realBtn').textContent=sings?'▶ Play the song':'▶ Play a song from '+place;
   s.dubbed=null; renderLyrics(s);
   setDub(false);
@@ -1143,12 +1176,12 @@ async function removeStage(item,card){
 function renderStage(){
   const g=document.getElementById('stageGrid'); g.innerHTML='';
   const all=[...ytList.map(x=>({type:'yt',...x})),...fileList.map(x=>({type:'file',...x}))];
-  if(!all.length){ g.innerHTML='<div class="empty">No songs yet. Paste a YouTube link or add a music file below. 🎤</div>'; return; }
+  if(!all.length){ g.innerHTML='<div class="empty">No songs yet. Search at the top and tap Add. Karaoke recordings will appear here too. 🎤</div>'; return; }
   all.forEach(item=>{
     const b=document.createElement('button'); b.className='scard'+(stageNow&&stageNow.id===item.id?' now':'');
     b.innerHTML=(item.type==='yt'
       ?`<img class="thumb" src="https://i.ytimg.com/vi/${item.id}/mqdefault.jpg" alt="" loading="lazy">`
-      :`<div class="thumb emoji">🎵</div>`)
+      :`<div class="thumb emoji${item.rec?' rec':''}">${item.rec?'🎙️':'🎵'}</div>`)
       +`<span>${esc(item.title||item.name)}</span><div class="rm" title="Remove">✕</div><div class="pin" title="Put on a flag or planet">📌</div>`;
     b.onclick=()=>playStage(item);
     b.querySelector('.rm').onclick=e=>{e.stopPropagation(); removeStage(item,b);};
@@ -1170,6 +1203,10 @@ function playerHtml(item,cc){
 function playStage(item){
   stopAll(); stageNow=item; subLang.player=null;
   document.getElementById('player').innerHTML=playerHtml(item);
+  if(item.rec&&item.songId){ // her recording of one of the app's songs: play the tune underneath, words off
+    const sg=SONGS.find(x=>x.id===item.songId); const a=document.querySelector('#player audio');
+    if(sg&&a){ const saved=state.voice; state.voice=false; a.onplay=()=>{ if(!current) playSong(sg,{onEnd:()=>{ state.voice=saved; }}); }; a.onpause=()=>{ stopAll(); state.voice=saved; }; a.onended=()=>{ stopAll(); state.voice=saved; }; }
+  }
   renderStage(); showDubBar(item,null); window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -1736,6 +1773,69 @@ function renderHome(){
 }
 renderHome();
 
+/* ========= KARAOKE: sing along and record (stays on this device) ========= */
+const K={on:false,kind:null,stream:null,mr:null,chunks:[],t0:0,timer:null,raf:null,blob:null,title:'',songId:null,analyser:null,src:null};
+function kmsgOnly(text){ const bar=document.getElementById('kbar'); bar.hidden=false; document.getElementById('krec').hidden=true; document.getElementById('kcount').hidden=true; const d=document.getElementById('kdone'); d.hidden=false; document.getElementById('kmsg').textContent=text; document.getElementById('kaudio').hidden=true; d.querySelector('.kbtns').innerHTML='<button class="toggle" onclick="karaokeClose()">OK</button>'; }
+async function karaokeStart(kind){
+  if(K.on) return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){ kmsgOnly('This browser cannot record sound. On the iPad, open Music Alley in Safari.'); return; }
+  if(kind==='song'&&!(songNow&&songNow.lines&&songNow.lines[0]&&songNow.lines[0].notes)){ kmsgOnly('Pick a song with a tune first, then tap Karaoke.'); return; }
+  if(kind==='video'&&!playingVideo('player')){ kmsgOnly('Start a video first, then tap Sing & record.'); return; }
+  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }
+  catch(e){ kmsgOnly('Music Alley needs the microphone to record. Allow it when the iPad asks, then try again.'); return; }
+  stopAll(); setDub(false);
+  K.on=true; K.kind=kind; K.stream=stream; K.chunks=[]; K.blob=null;
+  K.title=kind==='song'?songNow.title.replace(/\(.*\)/,'').trim():((document.getElementById('nowTitle')||{}).textContent||'a song'); K.songId=kind==='song'?songNow.id:null;
+  const bar=document.getElementById('kbar'); bar.hidden=false; document.getElementById('kdone').hidden=true; document.getElementById('krec').hidden=true;
+  const cnt=document.getElementById('kcount'); cnt.hidden=false;
+  for(const n of ['3','2','1','🎤']){ cnt.textContent=n; if(n!=='🎤') blipNote(n==='1'?880:660); await sleep(800); if(!K.on) return; }
+  cnt.hidden=true; document.getElementById('krec').hidden=false;
+  // meter
+  try{ const c=ac(); K.src=c.createMediaStreamSource(stream); K.analyser=c.createAnalyser(); K.analyser.fftSize=512; K.src.connect(K.analyser); const data=new Uint8Array(K.analyser.frequencyBinCount);
+    const tick=()=>{ if(!K.on) return; K.analyser.getByteTimeDomainData(data); let sum=0; for(const v of data){ const d=(v-128)/128; sum+=d*d; } const rms=Math.sqrt(sum/data.length); document.getElementById('klevel').style.width=Math.min(100,rms*300)+'%'; K.raf=requestAnimationFrame(tick); }; tick(); }catch(e){}
+  // recorder
+  const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/aac'].find(m=>MediaRecorder.isTypeSupported(m))||'';
+  try{ K.mr=new MediaRecorder(stream,mime?{mimeType:mime}:undefined); }catch(e){ K.mr=new MediaRecorder(stream); }
+  K.mr.ondataavailable=e=>{ if(e.data&&e.data.size) K.chunks.push(e.data); };
+  K.mr.onstop=()=>karaokeDone();
+  try{ K.mr.start(250); }catch(e){ K.on=false; try{ stream.getTracks().forEach(t=>t.stop()); }catch(x){} kmsgOnly('The microphone could not start. Close other apps using it and try again.'); return; }
+  K.t0=Date.now();
+  K.timer=setInterval(()=>{ const sec=Math.floor((Date.now()-K.t0)/1000); document.getElementById('ktime').textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); if(sec>=300) karaokeStop(); },500);
+  // the music
+  if(kind==='song'){ setDub(true); playSong(songNow,{onLine:highlightLine,onEnd:()=>{ setDub(false); if(K.on) setTimeout(karaokeStop,800); }}); }
+  else { try{ const r=ytPlayers.player; if(r&&r.player&&r.player.seekTo){ r.player.seekTo(0,true); r.player.playVideo(); } }catch(e){} }
+}
+function blipNote(f){ try{ const c=ac(); const o=c.createOscillator(), g=c.createGain(); o.type='sine'; o.frequency.value=f; g.gain.setValueAtTime(.0001,c.currentTime); g.gain.exponentialRampToValueAtTime(.12,c.currentTime+.02); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.25); o.connect(g); g.connect(master); o.start(); o.stop(c.currentTime+.3); }catch(e){} }
+function applause(){ try{ const c=ac(); const len=c.sampleRate*1.6; const buf=c.createBuffer(1,len,c.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<len;i++){ const t=i/len; d[i]=(Math.random()*2-1)*Math.pow(1-t,1.5)*(0.5+0.5*Math.random()); } const src=c.createBufferSource(); src.buffer=buf; const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1800; f.Q.value=.6; const g=c.createGain(); g.gain.value=.35; src.connect(f); f.connect(g); g.connect(master); src.start(); }catch(e){} }
+function karaokeStop(){
+  if(!K.on) return; K.on=false; clearInterval(K.timer); cancelAnimationFrame(K.raf);
+  if(K.kind==='song') { stopAll(); setDub(false); } else { try{ const r=ytPlayers.player; r&&r.player&&r.player.pauseVideo&&r.player.pauseVideo(); }catch(e){} }
+  try{ if(K.mr&&K.mr.state!=='inactive') K.mr.stop(); else karaokeDone(); }catch(e){ karaokeDone(); }
+  try{ K.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  try{ K.src&&K.src.disconnect(); }catch(e){}
+}
+function karaokeDone(){
+  const mime=(K.mr&&K.mr.mimeType)||'audio/webm'; K.blob=new Blob(K.chunks,{type:mime});
+  document.getElementById('krec').hidden=true; const d=document.getElementById('kdone'); d.hidden=false;
+  d.querySelector('.kbtns').innerHTML='<button class="toggle on" onclick="karaokeKeep()">💾 Keep it</button><button class="toggle" onclick="karaokeAgain()">🔁 Sing again</button><button class="toggle" onclick="karaokeClose()">🗑️ Delete</button>';
+  const a=document.getElementById('kaudio'); a.hidden=false; a.src=URL.createObjectURL(K.blob);
+  const secs=Math.round(K.blob.size?(Date.now()-K.t0)/1000:0);
+  document.getElementById('kmsg').textContent=secs<4?'That was quick! Try singing a bit longer.':['🎉 Lovely singing!','⭐ What a voice!','👏 Bravo, superstar!','🌟 Beautiful! Listen back:'][Math.floor(Math.random()*4)];
+  if(secs>=4) applause();
+}
+async function karaokeKeep(){
+  if(!K.blob) return;
+  const when=new Date(); const name='🎙️ '+K.title+' · '+when.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+when.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+  const item={id:'r'+Date.now(),name,blob:K.blob,rec:true,songId:K.songId};
+  fileList.unshift(item);
+  try{ const db=await dbOpen(); db.transaction('files','readwrite').objectStore('files').put(item); }catch(e){}
+  renderStage(); karaokeClose();
+  document.getElementById('kbar').hidden=false; kmsgOnly('Saved under My recordings in Songs Alley. 💖');
+  setTimeout(karaokeClose,2500);
+}
+function karaokeAgain(){ const kind=K.kind; karaokeClose(); karaokeStart(kind); }
+function karaokeClose(){ if(K.on) karaokeStop(); document.getElementById('kbar').hidden=true; try{ const a=document.getElementById('kaudio'); a.pause(); a.removeAttribute('src'); }catch(e){} K.blob=null; }
+
 /* ========= COMFORT: tap sounds, calm mode, one Stop button ========= */
 let fxOn=true, calmOn=false;
 try{ fxOn=localStorage.getItem('ma_fx')!=='off'; calmOn=localStorage.getItem('ma_calm')==='on'; }catch(e){}
@@ -1750,7 +1850,7 @@ function toggleCalm(){ calmOn=!calmOn; try{ localStorage.setItem('ma_calm',calmO
 function blip(){ try{ const c=ac(); const o=c.createOscillator(), g=c.createGain(); o.type='sine'; o.frequency.value=880; g.gain.setValueAtTime(.0001,c.currentTime); g.gain.exponentialRampToValueAtTime(.06,c.currentTime+.01); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.09); o.connect(g); g.connect(master); o.start(); o.stop(c.currentTime+.1); }catch(e){} }
 document.addEventListener('pointerdown',e=>{ if(fxOn&&e.target.closest('button,.flag-card,.acard,.planet .ball,.scard,.rcard')) blip(); },{passive:true});
 applyComfort();
-function stopEverything(){ stopAll(); document.querySelectorAll('.player').forEach(p=>p.innerHTML=''); setDub(false); setPlanetDub(false); document.querySelectorAll('.tag').forEach(t=>{ if(t.id!=='nowTag') t.hidden=true; }); }
+function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop(); stopAll(); document.querySelectorAll('.player').forEach(p=>p.innerHTML=''); setDub(false); setPlanetDub(false); document.querySelectorAll('.tag').forEach(t=>{ if(t.id!=='nowTag') t.hidden=true; }); }
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
 
 /* ========= STARS ========= */
