@@ -94,6 +94,19 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .rcard .play{background:rgba(255,255,255,.14)}
 .rcard.added .add{background:var(--green);color:#063}
 .rmsg{grid-column:1/-1;color:var(--muted);text-align:center;padding:14px;font-size:16px}
+/* dub bar */
+.dubbar{background:var(--card);border-radius:24px;padding:14px 16px;margin:-4px 0 18px}
+.dubbar[hidden]{display:none}
+.dubhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:17px}
+.tag{background:rgba(255,255,255,.14);border-radius:14px;padding:3px 10px;font-size:14px;font-weight:700}
+.tag.dub{background:rgba(255,107,157,.3);color:#ffd6e5}
+.dublabel{font-weight:700;font-size:18px;margin:4px 0 8px}
+.dublangs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.dublangs button{min-height:46px;padding:0 14px;border-radius:24px;background:var(--card2);font-weight:600;font-size:16px;border:2px solid transparent}
+.dublangs button.has{border-color:var(--green)}
+.dublangs button.now{background:linear-gradient(135deg,var(--accent),var(--pink));color:#1a1033}
+.dublangs button.orig{background:rgba(255,255,255,.2)}
+.dubnote{color:var(--muted);font-size:14px;margin:4px 0 8px}
 .filebtn{display:inline-flex;align-items:center;position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
 a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inherit}
@@ -238,6 +251,13 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
     <h2>Mihu's Stage <small>Your favourite songs, your way</small></h2>
   </div>
   <div class="player" id="player"></div>
+  <div class="dubbar" id="dubbar" hidden>
+    <div class="dubhead"><span class="tag" id="nowTag">Original</span><b id="nowTitle"></b></div>
+    <div class="dublabel">🎙️ Dub it in…</div>
+    <div class="dublangs" id="dubLangs"></div>
+    <p class="dubnote">A dub is the same song sung again in another language, so the mouths may not match the words. Tip: on some official videos the ⚙️ inside the player also has an “Audio track” menu.</p>
+    <div class="results" id="dubResults" data-player="player"></div>
+  </div>
   <div class="addbox searchbox">
     <div class="addrow">
       <input id="ytQuery" type="search" placeholder="Search YouTube: Equestria Girls songs…" enterkeyhint="search" onkeydown="if(event.key==='Enter')ytSearch()">
@@ -648,7 +668,7 @@ function go(id){
   stopAll();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if(id!=='stage'){ stageNow=null; }
+  if(id!=='stage'){ stageNow=null; const db=document.getElementById('dubbar'); if(db) db.hidden=true; }
   document.querySelectorAll('.player').forEach(p=>p.innerHTML='');
   const sr=document.getElementById('sresults'); if(sr) sr.innerHTML='';
   window.scrollTo(0,0);
@@ -846,16 +866,16 @@ function saveKey(){
   if(document.getElementById('ytQuery').value.trim()) ytSearch();
 }
 function decodeHtml(s){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
-async function ytSearch(q,box){
+async function ytSearch(q,box,opts={}){
   if(typeof q!=='string') q=document.getElementById('ytQuery').value.trim();
   if(!box) box=document.getElementById('ytResults');
   const playerId=box.dataset.player||'player';
   if(!q) return;
   const key=ytKey();
   if(!key){ toggleKeyCard(true); box.innerHTML='<div class="rmsg">Search needs a one-time setup. Follow the three steps above.</div>'; return; }
-  box.innerHTML='<div class="rmsg">Searching…</div>';
+  if(!opts.keep) box.innerHTML='<div class="rmsg">Searching…</div>';
   try{
-    const u='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults=12&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+    const u='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults='+(opts.max||12)+'&q='+encodeURIComponent(q)+(opts.extra||'')+'&key='+encodeURIComponent(key);
     const r=await fetch(u); const j=await r.json();
     if(j.error){
       const m=j.error.message||'';
@@ -863,17 +883,18 @@ async function ytSearch(q,box){
       if(r.status===400||r.status===403&&!/quota/i.test(m)) toggleKeyCard(true);
       return;
     }
-    const items=(j.items||[]).filter(it=>it.id&&it.id.videoId);
-    if(!items.length){ box.innerHTML='<div class="rmsg">Nothing found. Try different words.</div>'; return; }
-    box.innerHTML='';
+    const have=new Set([...box.querySelectorAll('.rcard')].map(c=>c.dataset.id));
+    const items=(j.items||[]).filter(it=>it.id&&it.id.videoId&&!have.has(it.id.videoId));
+    if(!items.length){ if(!opts.keep||!have.size) box.innerHTML='<div class="rmsg">Nothing found. Try different words.</div>'; return; }
+    if(!opts.keep) box.innerHTML=''; else box.querySelectorAll('.rmsg.wait').forEach(e=>e.remove());
     items.forEach(it=>{
       const id=it.id.videoId, title=decodeHtml(it.snippet.title), ch=decodeHtml(it.snippet.channelTitle||'');
       const thumb=(it.snippet.thumbnails.medium||it.snippet.thumbnails.default||{}).url||`https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
-      const d=document.createElement('div'); d.className='rcard'+(ytList.some(x=>x.id===id)?' added':'');
+      const d=document.createElement('div'); d.className='rcard'+(ytList.some(x=>x.id===id)?' added':''); d.dataset.id=id;
       d.innerHTML=`<img src="${thumb}" alt=""><div class="rt">${esc(title)}</div><div class="rc">${esc(ch)}</div>
-        <div class="ra"><button class="play">▶ Play</button><button class="add">${ytList.some(x=>x.id===id)?'✓ Added':'＋ Add'}</button></div>`;
-      d.querySelector('.play').onclick=()=>{ stopAll(); stageNow=null; const p=document.getElementById(playerId); p.innerHTML=playerHtml({type:'yt',id,title}); p.scrollIntoView({behavior:'smooth',block:'center'}); };
-      d.querySelector('.add').onclick=()=>{ addYtItem(id,title); d.classList.add('added'); d.querySelector('.add').textContent='✓ Added'; };
+        <div class="ra"><button class="play">▶ Play</button><button class="add">${opts.pickLabel?esc(opts.pickLabel):(ytList.some(x=>x.id===id)?'✓ Added':'＋ Add')}</button></div>`;
+      d.querySelector('.play').onclick=()=>{ stopAll(); if(!opts.onPick) stageNow=null; const p=document.getElementById(playerId); p.innerHTML=playerHtml({type:'yt',id,title}); p.scrollIntoView({behavior:'smooth',block:'center'}); };
+      d.querySelector('.add').onclick=()=>{ if(opts.onPick){ opts.onPick(id,title,d); return; } addYtItem(id,title); d.classList.add('added'); d.querySelector('.add').textContent='✓ Added'; };
       box.appendChild(d);
     });
   }catch(e){ box.innerHTML='<div class="rmsg">Could not reach YouTube. Is the internet on?</div>'; }
@@ -934,8 +955,65 @@ function playerHtml(item){
 function playStage(item){
   stopAll(); stageNow=item;
   document.getElementById('player').innerHTML=playerHtml(item);
-  renderStage(); window.scrollTo({top:0,behavior:'smooth'});
+  renderStage(); showDubBar(item,null); window.scrollTo({top:0,behavior:'smooth'});
 }
+
+/* ---- DUB: play the same song in another language (official dubbed uploads found on YouTube) ---- */
+const DUB_LANGS=[['hi','Hindi','हिन्दी'],['ta','Tamil','தமிழ்'],['te','Telugu','తెలుగు'],['kn','Kannada','ಕನ್ನಡ'],['ml','Malayalam','മലയാളം'],['bn','Bengali','বাংলা'],['mr','Marathi','मराठी'],['gu','Gujarati','ગુજરાતી'],['pa','Punjabi','ਪੰਜਾਬੀ'],
+ ['es','Spanish','Español'],['fr','French','Français'],['de','German','Deutsch'],['it','Italian','Italiano'],['pt','Portuguese','Português'],['ja','Japanese','日本語'],['ko','Korean','한국어'],['zh','Chinese','中文'],['ru','Russian','Русский'],['ar','Arabic','العربية'],['id','Indonesian','Bahasa'],['en','English','English']];
+function cleanTitle(t){
+  return (t||'').split('|')[0].replace(/[\(\[][^\)\]]*[\)\]]/g,' ')
+    .replace(/\b(official|music|video|lyrics?|lyric|4k|hd|remaster(ed)?|mv|full|song|version|audio|hq)\b/gi,' ')
+    .replace(/[-–—:]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function showDubBar(item,lang){
+  const bar=document.getElementById('dubbar');
+  if(!item||item.type!=='yt'){ bar.hidden=true; return; }
+  bar.hidden=false;
+  const L=DUB_LANGS.find(x=>x[0]===lang);
+  document.getElementById('nowTag').textContent=L?L[1]+' dub':'Original';
+  document.getElementById('nowTag').className='tag'+(L?' dub':'');
+  document.getElementById('nowTitle').textContent=L&&item.dubs&&item.dubs[lang]?item.dubs[lang].title:item.title;
+  const box=document.getElementById('dubLangs'); box.innerHTML='';
+  const o=document.createElement('button'); o.className='orig'+(lang?'':' now'); o.textContent='⭐ Original';
+  o.onclick=()=>{ stopAll(); document.getElementById('player').innerHTML=playerHtml(item); document.getElementById('dubResults').innerHTML=''; showDubBar(item,null); };
+  box.appendChild(o);
+  DUB_LANGS.forEach(([code,name,native])=>{
+    const b=document.createElement('button'); const has=item.dubs&&item.dubs[code];
+    b.className=(has?'has':'')+(lang===code?' now':''); b.textContent=(has?'✓ ':'')+name;
+    b.title=native; b.onclick=()=>dubIn(item,code);
+    box.appendChild(b);
+  });
+  document.getElementById('dubResults').innerHTML='';
+}
+async function dubIn(item,lang){
+  const L=DUB_LANGS.find(x=>x[0]===lang); const stored=item.dubs&&item.dubs[lang];
+  const res=document.getElementById('dubResults');
+  if(stored){ // play the remembered dub straight away
+    stopAll(); document.getElementById('player').innerHTML=playerHtml({type:'yt',id:stored.id,title:stored.title});
+    showDubBar(item,lang);
+    res.innerHTML=`<div class="rmsg">Playing the ${L[1]} dub. Not the right one? <button class="toggle" style="min-height:40px;font-size:15px" onclick="forgetDub('${item.id}','${lang}')">Choose another</button></div>`;
+    return;
+  }
+  showDubBar(item,null);
+  document.querySelectorAll('#dubLangs button').forEach(b=>{ if(b.textContent.replace('✓ ','')===L[1]) b.classList.add('now'); });
+  const REGION={hi:'IN',ta:'IN',te:'IN',kn:'IN',ml:'IN',bn:'IN',mr:'IN',gu:'IN',pa:'IN',es:'MX',fr:'FR',de:'DE',it:'IT',pt:'BR',ja:'JP',ko:'KR',zh:'TW',ru:'RU',ar:'EG',id:'ID',en:'US'};
+  const extra='&relevanceLanguage='+lang+'&regionCode='+(REGION[lang]||'US');
+  const title=cleanTitle(item.title), series=cleanTitle((item.title||'').split(/[-–—:|]/)[0]);
+  const opts={extra,max:8,pickLabel:'✓ This is the '+L[1]+' one',onPick:(id,t)=>{
+    item.dubs=item.dubs||{}; item.dubs[lang]={id,title:t}; saveYt();
+    stopAll(); document.getElementById('player').innerHTML=playerHtml({type:'yt',id,title:t});
+    showDubBar(item,lang); window.scrollTo({top:0,behavior:'smooth'});
+  }};
+  res.innerHTML='<div class="rmsg">Looking for the '+L[1]+' version…</div>';
+  await ytSearch(title+' '+L[1]+' dubbed',res,opts);                       // this exact song in that language
+  if(series&&series!==title){
+    res.insertAdjacentHTML('beforeend','<div class="rmsg wait">Looking for more…</div>');
+    await ytSearch(series+' '+L[1]+' dubbed',res,{...opts,keep:true});     // the same show or singer in that language
+  }
+  if(res.querySelector('.rcard')) res.insertAdjacentHTML('afterbegin',`<div class="rmsg" style="grid-column:1/-1;text-align:left">These may be ${L[1]} versions of <b>${esc(title)}</b>. Press ▶ to try one, then ✓ to remember it. Next time, ${L[1]} plays with one tap.</div>`);
+}
+function forgetDub(id,lang){ const it=ytList.find(x=>x.id===id); if(it&&it.dubs){ delete it.dubs[lang]; saveYt(); dubIn(it,lang); } }
 loadFiles();
 
 /* ========= PINS: her songs on flags and planets ========= */
