@@ -333,7 +333,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     <button class="room animals" onclick="go('animals')">
       <span class="big">🐧</span>
       <h3>Animal Alley</h3>
-      <p>Baby chicks, ostriches, penguins and friends. Watch them, hear their songs, learn a fun fact.</p>
+      <p>Baby chicks, pheasants, ostriches, penguins and friends. Watch them, hear their songs, learn a fun fact.</p>
       <span class="glow"></span>
     </button>
   </div>
@@ -776,6 +776,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function stopAll(){
   if(current){
     current.cancel=true;
+    (current.timeouts||[]).forEach(clearTimeout);
     const b=current.bus, c=ac();
     try{ b.gain.setTargetAtTime(0,c.currentTime,.04); setTimeout(()=>{try{b.disconnect()}catch(e){}},400); }catch(e){}
     if(current.onEnd) current.onEnd();
@@ -787,12 +788,33 @@ async function playSong(song,{onLine,onEnd}={}){
   stopAll();
   const c=ac();
   const bus=c.createGain(); bus.gain.value=1; bus.connect(master);
-  const run={bus,cancel:false,onEnd};
+  const run={bus,cancel:false,onEnd,timeouts:[]};
   current=run;
   const inst=INST[song.inst];
   const beat=60/song.bpm*(state.slow?1.7:1);
   if(inst.drone) drone(inst.drone,bus);
   await sleep(inst.drone?500:60);
+  if(run.cancel) return;
+  const karaoke=!state.teach&&song.lines.every(l=>l.notes); // the normal way: the tune runs straight through, words light up in time
+  if(karaoke){
+    let t=c.currentTime+.1; const base=t;
+    song.lines.forEach((line,i)=>{
+      const start=t;
+      for(const n of parseNotes(line.notes)){ if(n.freq) tone(n.freq,t,n.beats*beat*.92,inst,bus); t+=n.beats*beat; }
+      t+=beat*.25; // a breath between lines
+      run.timeouts.push(setTimeout(()=>{
+        if(run.cancel) return;
+        onLine&&onLine(i,line);
+        const say=(song.dubbed&&song.dubbed.lines[i])||(state.voice&&line.text)||null; // the words follow the music, never pausing it
+        if(say){ try{ speechSynthesis.cancel(); }catch(e){} speak(say,song.dubbed?song.dubbed.lang:song.lang,song.dubbed?null:line.roman,state.slow?.8:1.05); }
+      },(start-base)*1000));
+    });
+    await sleep((t-base)*1000+500);
+    if(run.cancel) return;
+    onLine&&onLine(-1); current=null;
+    setTimeout(()=>{try{bus.disconnect()}catch(e){}},1500);
+    onEnd&&onEnd(); return;
+  }
   for(let i=0;i<song.lines.length;i++){
     if(run.cancel) return;
     const line=song.lines[i];
@@ -1683,6 +1705,7 @@ async function earthPhoto(){
 const ANIMALS=[
  // birds (her favourites first)
  {id:'chick',name:'Baby chick',hi:'चूज़ा (chooza)',e:'🐣',g:'Birds',q:'baby chicks hatching for kids',fact:'A chick talks to its mum from inside the egg before it hatches, and can walk within hours of being born.'},
+ {id:'pheasant',name:'Baby pheasant',hi:'फ़ीज़ेंट का बच्चा (pheasant ka bachcha)',e:'🐥',g:'Birds',q:'baby pheasant chicks for kids',fact:'Pheasant chicks can run and peck for food on the very day they hatch. The dads grow long, shimmering tails and bright red faces.'},
  {id:'hen',name:'Hen',hi:'मुर्गी (murgi)',e:'🐔',g:'Birds',fact:'A hen turns her eggs about 50 times a day so they stay warm all over.'},
  {id:'ostrich',name:'Ostrich',hi:'शुतुरमुर्ग (shuturmurg)',e:'🪶',g:'Birds',fact:'The biggest bird in the world. It cannot fly, but it can run faster than a horse, and its eye is bigger than its brain!'},
  {id:'penguin',name:'Penguin',hi:'पेंगुइन (penguin)',e:'🐧',g:'Birds',fact:'Penguins cannot fly in the air, but they fly underwater. Emperor penguin dads keep the egg warm on their feet all winter.'},
