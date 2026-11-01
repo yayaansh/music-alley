@@ -410,8 +410,8 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     <button class="toggle" id="dubBtn" data-label="🎤 Sing along" onclick="toggleDub()">🎤 Sing along</button>
     <button class="toggle on" id="voiceBtn" onclick="toggleOpt('voice',this)">🗣️ Voice</button>
     <button class="toggle" id="karaokeBtn" onclick="karaokeStart('song')">🎤 Karaoke</button>
-    <button class="toggle" id="slowBtn" onclick="toggleOpt('slow',this)">🐢 Slow</button>
-    <button class="toggle" id="teachBtn" onclick="toggleOpt('teach',this)">🎓 Teach me</button>
+    <button class="toggle" id="slowBtn" onclick="toggleOpt('slow',this)" title="Play Sing along slower">🐢 Slower</button>
+    <button class="toggle" id="teachBtn" onclick="toggleOpt('teach',this)" title="After each line, hear its meaning in English">🎓 Teach me</button>
     <button class="toggle" id="pinPlayBtn" hidden onclick="togglePinPlayer('splayer',pinKeyNow)">🌈 Mihu's song</button>
     <button class="toggle" id="findBtn" onclick="findSongs()">🔍 Songs from here</button>
     <button class="toggle fav" id="favBtn" onclick="toggleFav()" aria-label="Favourite">🤍</button>
@@ -442,7 +442,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   <div class="live" id="liveCards"></div>
   <div class="controls">
     <button class="dub" id="planetDub" onclick="togglePlanetSong()">▶ Planet song</button>
-    <button class="toggle" id="pslowBtn" onclick="toggleOpt('slow',this)">🐢 Slow</button>
+    <button class="toggle" id="pslowBtn" onclick="toggleOpt('slow',this)" title="Play the planet song slower">🐢 Slower</button>
   </div>
   <div class="plyrics" id="plyrics"></div>
 </section>
@@ -865,7 +865,18 @@ function go(id){
   window.scrollTo(0,0);
   syncToggles();
 }
-function toggleOpt(key,btn){ state[key]=!state[key]; syncToggles(); ac(); }
+function toggleOpt(key,btn){
+  state[key]=!state[key]; syncToggles(); ac();
+  if(key==='voice') return;
+  // Slow and Teach me change how Sing along plays, so make them act straight away
+  const onSong=document.getElementById('song').classList.contains('active'), onPlanets=document.getElementById('planets').classList.contains('active');
+  if(onSong&&songNow&&songNow.lines&&songNow.lines[0]&&songNow.lines[0].notes){
+    stopAll(); document.getElementById('splayer').innerHTML=''; document.getElementById('sresults').innerHTML=''; dubSetTag({tagId:'sNowTag',titleId:'sNowTitle'},'','');
+    setDub(true); playSong(songNow,{onLine:highlightLine,onEnd:()=>setDub(false)});
+  } else if(onPlanets&&key==='slow'){
+    stopAll(); setPlanetDub(true); playSong(PLANET_SONG,{onLine:glowPlanets,onEnd:()=>setPlanetDub(false)});
+  }
+}
 function syncToggles(){
   document.getElementById('slowBtn').classList.toggle('on',state.slow);
   document.getElementById('pslowBtn').classList.toggle('on',state.slow);
@@ -946,6 +957,7 @@ function openSong(s){
   const sings=!!(s.lines&&s.lines[0]&&s.lines[0].notes);
   document.getElementById('dubBtn').dataset.label=sings?'🎤 Sing along':'🔊 Say hello'; setDub(false);
   document.getElementById('voiceBtn').hidden=!sings; document.getElementById('karaokeBtn').hidden=!sings;
+  document.getElementById('slowBtn').hidden=!sings; document.getElementById('teachBtn').hidden=!sings;
   document.getElementById('realBtn').textContent=sings?'▶ Play the song':'▶ Play a song from '+place;
   s.dubbed=null; renderLyrics(s);
   setDub(false);
