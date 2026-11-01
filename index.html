@@ -353,7 +353,14 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   </div>
   <div class="player" id="player"></div>
   <div class="dubbar" id="dubbar" hidden>
-    <div class="dubhead"><span class="tag" id="nowTag">Original</span><b id="nowTitle"></b><button class="toggle" style="margin-left:auto" onclick="karaokeStart('video')">🎤 Sing &amp; record</button></div>
+    <div class="dubhead"><span class="tag" id="nowTag">Original</span><b id="nowTitle"></b></div>
+    <div class="dublabel">🎤 Karaoke</div>
+    <div class="dublangs" id="kRow">
+      <button onclick="karaokeVersion()">🎼 Karaoke version</button>
+      <button id="wordsBtn" onclick="wordsOnScreen()">📝 Words on screen</button>
+      <button onclick="karaokeStart('video')">🎙️ Sing &amp; record</button>
+    </div>
+    <p class="dubnote">Karaoke version finds this song with the words on screen and the singer’s voice taken away. Words on screen turns on the video’s own lyric captions, when it has them.</p>
     <div class="dublabel">🎙️ Dub it in…</div>
     <div class="dublangs" id="dubLangs"></div>
     <p class="dubnote">Switches this video’s subtitles to the language you pick (✓ means the video has that language). A dub voice exists only when the video offers one under ⚙️ → Audio track.</p>
@@ -1107,7 +1114,8 @@ function addYtItem(id,title){
 const DEFAULT_YT_KEYS=['AIzaSyDj7OKlpVaDNdiWIaLc1lNnU4nuxg2dId4']; // more keys = more free searches per day (each Google Cloud project gets its own daily allowance)
 function ytKeys(){ let own=''; try{ own=localStorage.getItem('ma_ytkey')||''; }catch(e){} return [...own.split(/[\s,]+/).filter(Boolean),...DEFAULT_YT_KEYS].filter((k,i,a)=>a.indexOf(k)===i); }
 function ytKey(){ return ytKeys()[0]||''; }
-let quotaOutUntil=0;
+let quotaOutUntil=0, lastSearchError=null;
+function quotaMessage(){ return 'Today\u2019s free search allowance is used up. It comes back at about <b>'+quotaResetText()+'</b>. Songs and videos already remembered still play.'; }
 function quotaResetText(){ // the allowance resets at midnight in California
   const now=new Date(); const la=new Date(now.toLocaleString('en-US',{timeZone:'America/Los_Angeles'})); const diff=now-la;
   const nextLa=new Date(la); nextLa.setHours(24,0,0,0); const reset=new Date(nextLa.getTime()+diff);
@@ -1155,10 +1163,13 @@ async function ytSearch(q,box,opts={}){
         cachePut(ck,list); lastErr=null; break;
       }
       if(!list){
-        if(quota){ quotaOutUntil=Date.now()+36e5; box.innerHTML='<div class="rmsg">Today\u2019s free search allowance is used up. It comes back at about <b>'+quotaResetText()+'</b>. Songs and videos already remembered still play.</div>'; }
+        lastSearchError=quota?'quota':'error';
+        if(opts.keep){ box.querySelectorAll('.rmsg.wait').forEach(e=>e.remove()); return; } // keep what the first search found
+        if(quota){ quotaOutUntil=Date.now()+36e5; box.innerHTML='<div class="rmsg">'+quotaMessage()+'</div>'; }
         else { box.innerHTML='<div class="rmsg">Search is not working: '+esc(lastErr||'')+'. Check the key in ⚙️.</div>'; toggleKeyCard(true); }
         return;
       }
+      lastSearchError=null;
     }
     const have=new Set([...box.querySelectorAll('.rcard')].map(c=>c.dataset.id));
     const items=list.filter(it=>!have.has(it.id)&&kidSafe({title:it.title,channelTitle:it.ch,description:it.desc}));
@@ -1274,18 +1285,20 @@ function showDubBar(item,lang){
   if(!item||item.type!=='yt'){ bar.hidden=true; return; }
   bar.hidden=false;
   const L=lang&&langOf(lang); const rec=ytPlayers['player'];
-  document.getElementById('nowTag').textContent=L?L[1]+' subtitles':'Original';
-  document.getElementById('nowTag').className="tag"+(L?" isdub":"");
-  document.getElementById('nowTitle').textContent=item.title;
+  const ownWords=L&&rec&&rec.tracks&&rec.tracks[0]&&rec.tracks[0].languageCode.split('-')[0]===lang;
+  const vid=playingVideo('player'), other=vid&&vid!==item.id; // a karaoke version of her song is in the player
+  const tagEl=document.getElementById('nowTag');
+  if(L) tagEl.textContent=ownWords?'Words on':L[1]+' subtitles'; else if(other){ if(!/^Karaoke/.test(tagEl.textContent)) tagEl.textContent='Karaoke'; } else tagEl.textContent='Original';
+  tagEl.className="tag"+((L||other)?" isdub":"");
+  if(!other) document.getElementById('nowTitle').textContent=item.title;
   const box=document.getElementById('dubLangs'); box.innerHTML='';
-  const note=bar.querySelector('.dubnote');
-  if(!rec||rec.tracks===null){ box.innerHTML='<span class="dubnote">Checking which languages this video has…</span>'; note.hidden=true; return; }
-  if(!rec.tracks.length){ box.innerHTML='<span class="dubnote">This video has no subtitles or other languages, so it cannot be dubbed. Try another video of the same song.</span>'; note.hidden=true; return; }
+  const note=bar.querySelectorAll('.dubnote')[1]||bar.querySelector('.dubnote');
+  const back=()=>{ const o=document.createElement('button'); o.className='orig'+((lang||other)?'':' now'); o.textContent='⭐ Original'; o.onclick=()=>{ subLang.player=null; document.getElementById('dubResults').innerHTML=''; playStage(item); }; return o; };
+  if(!rec||rec.tracks===null){ box.innerHTML='<span class="dubnote">Checking which languages this video has…</span>'; if(other) box.prepend(back()); note.hidden=true; return; }
+  if(!rec.tracks.length){ box.innerHTML='<span class="dubnote">This video has no subtitles or other languages, so it cannot be dubbed. Try another video of the same song.</span>'; if(other) box.prepend(back()); note.hidden=true; return; }
   note.hidden=false;
   langChips(box,lang,c=>rec.tracks.some(t=>(t.languageCode||'').split('-')[0]===c),c=>dubIn(item,c));
-  const o=document.createElement('button'); o.className='orig'+(lang?'':' now'); o.textContent='⭐ Original';
-  o.onclick=()=>{ subLang.player=null; document.getElementById('dubResults').innerHTML=''; playStage(item); };
-  box.prepend(o);
+  box.prepend(back());
 }
 /* generic dub finder: used by Songs Alley and by every country / state screen */
 const REGION={hi:'IN',ta:'IN',te:'IN',kn:'IN',ml:'IN',bn:'IN',mr:'IN',gu:'IN',pa:'IN',es:'MX',fr:'FR',de:'DE',it:'IT',pt:'BR',ja:'JP',ko:'KR',zh:'TW',ru:'RU',ar:'EG',id:'ID',en:'US'};
@@ -1296,7 +1309,9 @@ function dubSetTag(ctx,tag,title){
   if(t){ t.hidden=!tag; t.textContent=tag||''; t.className='tag isdub'; }
   if(b) b.textContent=title||'';
 }
-function langOf(lang){ return lang==='orig'?['orig','the real song','']:DUB_LANGS.find(x=>x[0]===lang); }
+function langOf(lang){ return lang==='orig'?['orig','the real song','']:lang==='karaoke'?['karaoke','the karaoke version','']:lang==='video'?['video','a video','']:DUB_LANGS.find(x=>x[0]===lang); }
+const PLAIN=l=>l==='orig'||l==='karaoke'||l==='video';
+function dubTag(lang,L,q){ return (lang==='orig'?'Real song':lang==='karaoke'?'Karaoke':lang==='video'?'Video':L[1]+' dub')+(q?'?':''); }
 let pendingDub=null;
 function playingVideo(playerId){ const f=document.querySelector('#'+playerId+' iframe'); const m=f&&/embed\/([\w-]{11})/.exec(f.src); return m?m[1]:null; }
 function dubSearchInstead(){ if(pendingDub){ const {ctx,lang,queries}=pendingDub; pendingDub=null; dubRun(ctx,lang,queries,true); } }
@@ -1305,7 +1320,7 @@ async function dubRun(ctx,lang,queries,force){
   const stored=ctx.stored(lang);
   dubCands={ctx,lang,cards:[],i:0};
   if(stored){ // play the remembered version straight away
-    dubSetPlayer(ctx,stored); dubSetTag(ctx,lang==='orig'?'Real song':L[1]+' dub',stored.title); ctx.onLang&&ctx.onLang(lang);
+    dubSetPlayer(ctx,stored); dubSetTag(ctx,dubTag(lang,L),stored.title); ctx.onLang&&ctx.onLang(lang);
     res.innerHTML=`<div class="rmsg">Playing the ${L[1]} version. Not the right one? <button class="toggle" style="min-height:40px;font-size:15px" onclick="dubForget()">Choose another</button></div>`;
     window.scrollTo({top:0,behavior:'smooth'}); return;
   }
@@ -1320,13 +1335,13 @@ async function dubRun(ctx,lang,queries,force){
   }
   // rank: titles that name the language or say "dub" first; never the original itself
   const cards=[...res.querySelectorAll('.rcard')].filter(c=>c.dataset.id!==ctx.excludeId);
-  const score=c=>{ const t=(c.querySelector('.rt').textContent+' '+c.querySelector('.rc').textContent).toLowerCase(); return (lang!=='orig'&&(t.includes(L[1].toLowerCase())||t.includes(L[2].toLowerCase()))?2:0)+(lang!=='orig'&&/dub/.test(t)?1:0)+(/kids?|children|nursery|rhyme|baby|cartoon|toddler|preschool|poem|balgeet|बच्च/i.test(t)?2:0)+(/movie|film|trailer|item song|romantic|love song|dj|remix/i.test(t)?-3:0); };
+  const score=c=>{ const t=(c.querySelector('.rt').textContent+' '+c.querySelector('.rc').textContent).toLowerCase(); const plain=PLAIN(lang); return (!plain&&(t.includes(L[1].toLowerCase())||t.includes(L[2].toLowerCase()))?2:0)+(!plain&&/dub/.test(t)?1:0)+(lang==='karaoke'&&/karaoke|lyrics|sing.?along|instrumental/i.test(t)?3:0)+(/kids?|children|nursery|rhyme|baby|cartoon|toddler|preschool|poem|balgeet|बच्च/i.test(t)?2:0)+(/movie|film|trailer|item song|romantic|love song|dj|remix/i.test(t)?-3:0); };
   cards.sort((a,b)=>score(b)-score(a)); cards.forEach(c=>res.appendChild(c));
   res.querySelectorAll('.rmsg').forEach(e=>e.remove());
-  if(!cards.length){ res.innerHTML=`<div class="rmsg">I could not find a ${L[1]} version on YouTube. Try another language.</div>`; dubSetTag(ctx,'',''); ctx.onLang&&ctx.onLang(null); return; }
+  if(!cards.length){ res.innerHTML='<div class="rmsg">'+(lastSearchError==='quota'?quotaMessage():lastSearchError==='error'?'Search is not working right now. Check the key in ⚙️ on Songs Alley.':'I could not find '+(PLAIN(lang)?L[1]:'a '+L[1]+' version')+' on YouTube.'+(PLAIN(lang)?'':' Try another language.'))+'</div>'; dubSetTag(ctx,'',''); ctx.onLang&&ctx.onLang(null); return; }
   dubCands={ctx,lang,cards,i:0};
   res.insertAdjacentHTML('afterbegin',`<div class="rmsg dubctl" style="grid-column:1/-1;text-align:left;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-     <span>Playing my best guess ${lang==='orig'?'for the real song':'in <b>'+L[1]+'</b>'}. Is it right?</span>
+     <span>Playing my best guess ${PLAIN(lang)?'for '+L[1]:'in <b>'+L[1]+'</b>'}. Is it right?</span>
      <button class="toggle on" onclick="dubYes()">✓ Yes, remember it</button><button class="toggle" onclick="dubNext()">⏭ Try the next one</button></div>`);
   dubTry(0);
 }
@@ -1335,15 +1350,15 @@ function dubTry(i){
   dubCands.i=(i+cards.length)%cards.length; const c=cards[dubCands.i];
   cards.forEach(x=>x.style.outline=''); c.style.outline='3px solid var(--pink)';
   const v={id:c.dataset.id,title:c.querySelector('.rt').textContent};
-  dubSetPlayer(ctx,v); dubSetTag(ctx,(lang==='orig'?'Real song?':L[1]+' dub?')+' ('+(dubCands.i+1)+' of '+cards.length+')',v.title);
+  dubSetPlayer(ctx,v); dubSetTag(ctx,dubTag(lang,L,true)+' ('+(dubCands.i+1)+' of '+cards.length+')',v.title);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function dubNext(){ if(dubCands) dubTry(dubCands.i+1); }
 function dubYes(){ if(!dubCands||!dubCands.cards.length) return; const c=dubCands.cards[dubCands.i]; dubKeep({id:c.dataset.id,title:c.querySelector('.rt').textContent}); }
 function dubKeep(v){
   const {ctx,lang}=dubCands; const L=langOf(lang);
-  ctx.remember(lang,v); dubSetPlayer(ctx,v); dubSetTag(ctx,lang==='orig'?'Real song':L[1]+' dub',v.title); ctx.onLang&&ctx.onLang(lang);
-  document.getElementById(ctx.resultsId).innerHTML=`<div class="rmsg">Remembered! From now on, ${lang==='orig'?'Play the song':'tapping '+L[1]+' here'} plays this version.</div>`;
+  ctx.remember(lang,v); dubSetPlayer(ctx,v); dubSetTag(ctx,dubTag(lang,L),v.title); ctx.onLang&&ctx.onLang(lang);
+  document.getElementById(ctx.resultsId).innerHTML=`<div class="rmsg">Remembered! From now on, ${lang==='orig'?'Play the song':lang==='karaoke'?'Karaoke version':lang==='video'?'Watch':'tapping '+L[1]+' here'} plays this one.</div>`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function dubForget(){ if(!dubCands) return; const {ctx,lang}=dubCands; ctx.forget(lang); ctx.start(lang); }
@@ -1445,6 +1460,25 @@ function subtitleDub(playerId,lang,tagId,titleId,resultsId){
   dubSetTag({tagId,titleId},L[1]+' subtitles'+(has?'':' (translated)'),title);
   res.innerHTML=`<div class="rmsg" style="text-align:left;line-height:1.5">${has?L[1]+' subtitles are on for this video.':'YouTube is translating this video’s subtitles into '+L[1]+'. If they do not show, tap <b>CC</b> in the video, then ⚙️ → Subtitles → Auto-translate → '+L[1]+'.'}<br>For a ${L[1]} <b>voice</b>: ⚙️ inside the video → <b>Audio track</b>, when the video offers one.</div>`;
   refreshLangUI(playerId);
+}
+
+/* Songs Alley karaoke: the karaoke / lyrics version of her song, and the video's own lyric captions */
+function karaokeVersion(){
+  const item=stageNow; if(!item||item.type!=='yt') return;
+  const key='stage:'+item.id+':karaoke', title=cleanTitle(item.title);
+  const ctx={playerId:'player',resultsId:'dubResults',tagId:'nowTag',titleId:'nowTitle',excludeId:item.id,extra:'&relevanceLanguage=en&regionCode=IN',
+    stored:()=>placeDubs[key]||null, remember:(l,v)=>{ placeDubs[key]=v; savePlaceDubs(); }, forget:()=>{ delete placeDubs[key]; savePlaceDubs(); },
+    onLang:()=>{}, start:()=>karaokeVersion()};
+  stopAll(); subLang.player=null;
+  return dubRun(ctx,'karaoke',[title+' karaoke', title+' lyrics']);
+}
+function wordsOnScreen(){
+  const rec=ytPlayers.player; const res=document.getElementById('dubResults');
+  if(!rec||!rec.tracks||!rec.tracks.length){ res.innerHTML='<div class="rmsg">This video has no captions, so there are no words to show. Try <b>Karaoke version</b> instead.</div>'; return; }
+  const own=rec.tracks[0].languageCode.split('-')[0];
+  subtitleDub('player',own,'nowTag','nowTitle','dubResults');
+  res.innerHTML='<div class="rmsg">The video’s own words are on. If they do not show, tap <b>CC</b> inside the video.</div>';
+  document.getElementById('nowTag').textContent='Words on';
 }
 
 /* Country and state screens: a song from that place in the chosen language */
@@ -1642,7 +1676,7 @@ function planetCtx(kind){
     stored:()=>placeDubs[key]||null, remember:(l,v)=>{ placeDubs[key]=v; savePlaceDubs(); }, forget:()=>{ delete placeDubs[key]; savePlaceDubs(); },
     onLang:()=>{}, start:()=>kind==='video'?planetVideo():planetSongQ()};
 }
-function planetVideo(){ const n=planetNow.name; stopAll(); document.getElementById('qGallery').innerHTML=''; return dubRun(planetCtx('video'),'orig',[(n==='Sun'?'the Sun':n+' planet')+' for kids', n+' explained for children']); }
+function planetVideo(){ const n=planetNow.name; stopAll(); document.getElementById('qGallery').innerHTML=''; return dubRun(planetCtx('video'),'video',[(n==='Sun'?'the Sun':n+' planet')+' for kids', n+' explained for children']); }
 function planetSongQ(){ const n=planetNow.name; stopAll(); document.getElementById('qGallery').innerHTML=''; return dubRun(planetCtx('song'),'orig',[n+' song for kids', 'planet '+n+' nursery rhyme']); }
 async function planetPhotos(){
   const info=PLANET_INFO[planetNow.name], g=document.getElementById('qGallery');
@@ -1768,7 +1802,7 @@ function animalCtx(kind){
     stored:()=>placeDubs[key]||null, remember:(l,v)=>{ placeDubs[key]=v; savePlaceDubs(); }, forget:()=>{ delete placeDubs[key]; savePlaceDubs(); },
     onLang:()=>{}, start:()=>kind==='watch'?animalWatch():animalSong()};
 }
-function animalWatch(){ const a=animalNow; if(!a) return; stopAll(); return dubRun(animalCtx('watch'),'orig',[a.q||(a.name+' video for kids'), 'cute '+a.name.replace(/^baby /i,'')+' for children']); }
+function animalWatch(){ const a=animalNow; if(!a) return; stopAll(); return dubRun(animalCtx('watch'),'video',[a.q||(a.name+' video for kids'), 'cute '+a.name.replace(/^baby /i,'')+' for children']); }
 function animalSong(){ const a=animalNow; if(!a) return; stopAll(); return dubRun(animalCtx('song'),'orig',[a.name.replace(/^baby /i,'')+' song for kids', a.name.replace(/^baby /i,'')+' nursery rhyme']); }
 function animalSay(){ const a=animalNow; if(!a) return; if('speechSynthesis' in window) speechSynthesis.cancel(); speak(a.name,'en-US').then(()=>speak(a.hi.split(' (')[0],'hi-IN',a.hi.replace(/.*\(|\)/g,''))); }
 
