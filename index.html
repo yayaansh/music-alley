@@ -245,7 +245,8 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .gallery .rmsg{grid-column:1/-1}
 .bigpic{position:fixed;inset:0;z-index:60;background:rgba(3,5,20,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;cursor:pointer}
 .bigpic[hidden]{display:none}
-.bigpic img{max-width:100%;max-height:78vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.bigpic img{width:100%;max-width:1400px;max-height:80vh;object-fit:contain;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);background:#000}
+.bigpic{touch-action:pinch-zoom}
 .bigpic p{margin:12px 0 0;max-width:720px;text-align:center;font-size:16px;line-height:1.4}
 .bigpic small{color:var(--muted)}
 .fact.info ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:8px}
@@ -1690,8 +1691,8 @@ async function planetPhotos(){
     items.forEach(it=>{
       const d=it.data[0], thumb=it.links[0].href; const b=document.createElement('button');
       b.innerHTML=`<img src="${thumb}" alt="" loading="lazy"><span class="cap">${esc((d.title||'').slice(0,60))}</span>`;
-      b.onclick=async()=>{ let big=thumb; try{ const list=await (await fetch(it.href)).json(); big=list.find(u=>/~medium\.jpg$/i.test(u))||list.find(u=>/~large\.jpg$/i.test(u))||thumb; }catch(e){}
-        const bp=document.getElementById('qBig'); bp.innerHTML=`<img src="${big}" alt=""><p>${esc((d.title||''))}<br><small>${esc((d.description||'').slice(0,220))}${(d.description||'').length>220?'…':''} · NASA, ${(d.date_created||'').slice(0,4)}</small></p>`; bp.hidden=false; };
+      b.onclick=()=>{ const big=thumb.replace(/~(thumb|small|medium)\.jpg$/i,'~large.jpg'); // NASA's large size; falls back to the gallery size
+        const bp=document.getElementById('qBig'); bp.innerHTML=`<img src="${big}" alt="" onerror="this.onerror=null;this.src='${thumb}'"><p>${esc((d.title||''))}<br><small>${esc((d.description||'').slice(0,220))}${(d.description||'').length>220?'…':''} · NASA, ${(d.date_created||'').slice(0,4)} · pinch to zoom, tap to close</small></p>`; bp.hidden=false; };
       g.appendChild(b);
     });
     g.insertAdjacentHTML('beforeend','<div class="rmsg">Real photos from NASA. Tap one to see it big; tap again to close.</div>');
