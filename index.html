@@ -83,6 +83,8 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .addrow input{flex:1 1 220px;min-height:56px;border-radius:30px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;padding:0 18px;font:inherit;font-size:17px;-webkit-appearance:none}
 .addrow input:focus{outline:none;border-color:var(--accent)}
 .searchbox{margin:0 0 18px}
+.mic{font-size:22px;min-width:56px}
+.mic.on{background:#ff4d6d;border-color:#ff4d6d;animation:pulse 1s infinite}
 .keycard{background:rgba(0,0,0,.25);border-radius:18px;padding:14px 16px;margin:4px 0 10px;font-size:16px;line-height:1.45}
 .keycard ol{margin:8px 0 10px;padding-left:22px}
 .keycard li{margin-bottom:6px}
@@ -340,6 +342,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   </div>
   <div class="homerow" id="favRow" hidden><h4>💖 Mihu's favourites</h4><div class="chips2" id="favChips"></div></div>
   <div class="homerow" id="recentRow" hidden><h4>🕒 Recently played</h4><div class="chips2" id="recentChips"></div></div>
+  <p class="note" id="verLine"></p>
   <div class="settings">
     <button class="toggle" id="fxBtn" onclick="toggleFx()">🔔 Tap sounds</button>
     <button class="toggle" id="calmBtn" onclick="toggleCalm()">🌙 Calm mode</button>
@@ -371,6 +374,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     <div class="addrow">
       <input id="ytQuery" type="search" placeholder="Search YouTube: Equestria Girls songs…" enterkeyhint="search" onkeydown="if(event.key==='Enter')ytSearch()">
       <button class="toggle on" onclick="ytSearch()">🔍 Search</button>
+      <button class="toggle mic" id="micBtn" onclick="voiceSearch()" title="Say what to search for">🎤</button>
       <button class="toggle" id="keyBtn" onclick="toggleKeyCard()" title="Search settings">⚙️</button>
     </div>
     <div class="keycard" id="keyCard" hidden>
@@ -1110,6 +1114,22 @@ function addYtItem(id,title){
   saveYt(); renderStage(); return item;
 }
 
+/* ---- say it instead of typing it (speech recognition built into Safari / Chrome) ---- */
+let recog=null;
+function voiceSearch(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; const inp=document.getElementById('ytQuery'), btn=document.getElementById('micBtn'), box=document.getElementById('ytResults');
+  if(!SR){ box.innerHTML='<div class="rmsg">This browser cannot listen. On the iPad, open Music Alley in Safari.</div>'; return; }
+  if(recog){ try{ recog.stop(); }catch(e){} return; }
+  try{ recog=new SR(); }catch(e){ box.innerHTML='<div class="rmsg">Listening is not available here.</div>'; return; }
+  recog.lang='en-IN'; recog.interimResults=true; recog.maxAlternatives=1; recog.continuous=false;
+  const oldPh=inp.placeholder; inp.value=''; inp.placeholder='Listening… say a song name'; btn.textContent='👂'; btn.classList.add('on'); blipNote(880);
+  let heard='';
+  recog.onresult=e=>{ heard=''; for(const r of e.results) heard+=r[0].transcript; inp.value=heard; };
+  recog.onerror=e=>{ inp.placeholder=e.error==='not-allowed'||e.error==='service-not-allowed'?'Allow the microphone, then tap 🎤 again':'Did not catch that. Tap 🎤 and say it again'; };
+  recog.onend=()=>{ recog=null; btn.textContent='🎤'; btn.classList.remove('on'); if(heard.trim()){ inp.value=heard.trim(); inp.placeholder=oldPh; ytSearch(); } else if(inp.placeholder.startsWith('Listening')) inp.placeholder='Did not catch that. Tap 🎤 and say it again'; };
+  try{ recog.start(); }catch(e){ recog=null; btn.textContent='🎤'; btn.classList.remove('on'); inp.placeholder=oldPh; }
+}
+
 /* ---- YouTube search (needs a free YouTube Data API key, saved on this device) ---- */
 // Browser key for the YouTube Data API, restricted in Google Cloud to this app's web address. A key saved in ⚙️ on the device overrides it.
 const DEFAULT_YT_KEYS=['AIzaSyDj7OKlpVaDNdiWIaLc1lNnU4nuxg2dId4']; // more keys = more free searches per day (each Google Cloud project gets its own daily allowance)
@@ -1186,7 +1206,7 @@ async function ytSearch(q,box,opts={}){
       d.querySelector('.add').onclick=()=>{ if(opts.onPick){ opts.onPick(id,title,d); return; } addYtItem(id,title); d.classList.add('added'); d.querySelector('.add').textContent='✓ Added'; };
       box.appendChild(d);
     });
-  }catch(e){ box.innerHTML='<div class="rmsg">Could not reach YouTube. Is the internet on?</div>'; }
+  }catch(e){ lastSearchError='network'; if(!opts.keep) box.innerHTML='<div class="rmsg">Could not reach YouTube. Is the internet on?</div>'; else box.querySelectorAll('.rmsg.wait').forEach(x=>x.remove()); }
 }
 function dbOpen(){
   return new Promise((res,rej)=>{
@@ -1317,6 +1337,10 @@ let pendingDub=null;
 function playingVideo(playerId){ const f=document.querySelector('#'+playerId+' iframe'); const m=f&&/embed\/([\w-]{11})/.exec(f.src); return m?m[1]:null; }
 function dubSearchInstead(){ if(pendingDub){ const {ctx,lang,queries}=pendingDub; pendingDub=null; dubRun(ctx,lang,queries,true); } }
 async function dubRun(ctx,lang,queries,force){
+  try{ return await dubRunInner(ctx,lang,queries,force); }
+  catch(e){ const res=document.getElementById(ctx.resultsId); if(res) res.innerHTML='<div class="rmsg">Something went wrong: '+esc(e&&e.message||String(e))+'. Try again, or tell Papa.</div>'; try{ dubSetTag(ctx,'',''); }catch(x){} }
+}
+async function dubRunInner(ctx,lang,queries,force){
   const L=langOf(lang); const res=document.getElementById(ctx.resultsId);
   const stored=ctx.stored(lang);
   dubCands={ctx,lang,cards:[],i:0};
@@ -1339,7 +1363,7 @@ async function dubRun(ctx,lang,queries,force){
   const score=c=>{ const t=(c.querySelector('.rt').textContent+' '+c.querySelector('.rc').textContent).toLowerCase(); const plain=PLAIN(lang); return (!plain&&(t.includes(L[1].toLowerCase())||t.includes(L[2].toLowerCase()))?2:0)+(!plain&&/dub/.test(t)?1:0)+(lang==='karaoke'&&/karaoke|lyrics|sing.?along|instrumental/i.test(t)?3:0)+(/kids?|children|nursery|rhyme|baby|cartoon|toddler|preschool|poem|balgeet|बच्च/i.test(t)?2:0)+(/movie|film|trailer|item song|romantic|love song|dj|remix/i.test(t)?-3:0); };
   cards.sort((a,b)=>score(b)-score(a)); cards.forEach(c=>res.appendChild(c));
   res.querySelectorAll('.rmsg').forEach(e=>e.remove());
-  if(!cards.length){ res.innerHTML='<div class="rmsg">'+(lastSearchError==='quota'?quotaMessage():lastSearchError==='error'?'Search is not working right now. Check the key in ⚙️ on Songs Alley.':'I could not find '+(PLAIN(lang)?L[1]:'a '+L[1]+' version')+' on YouTube.'+(PLAIN(lang)?'':' Try another language.'))+'</div>'; dubSetTag(ctx,'',''); ctx.onLang&&ctx.onLang(null); return; }
+  if(!cards.length){ res.innerHTML='<div class="rmsg">'+(lastSearchError==='quota'?quotaMessage():lastSearchError==='network'?'Could not reach YouTube. Is the internet on?':lastSearchError==='error'?'Search is not working right now. Check the key in ⚙️ on Songs Alley.':'I could not find '+(PLAIN(lang)?L[1]:'a '+L[1]+' version')+' on YouTube.'+(PLAIN(lang)?'':' Try another language.'))+'</div>'; dubSetTag(ctx,'',''); ctx.onLang&&ctx.onLang(null); return; }
   dubCands={ctx,lang,cards,i:0};
   res.insertAdjacentHTML('afterbegin',`<div class="rmsg dubctl" style="grid-column:1/-1;text-align:left;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
      <span>Playing my best guess ${PLAIN(lang)?'for '+L[1]:'in <b>'+L[1]+'</b>'}. Is it right?</span>
@@ -1922,6 +1946,10 @@ document.addEventListener('pointerdown',e=>{ if(fxOn&&e.target.closest('button,.
 applyComfort();
 function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop(); stopAll(); document.querySelectorAll('.player').forEach(p=>p.innerHTML=''); setDub(false); setPlanetDub(false); document.querySelectorAll('.tag').forEach(t=>{ if(t.id!=='nowTag') t.hidden=true; }); }
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
+
+/* version line: shows when this copy of the page was published, so an old cached copy is easy to spot */
+const APP_VERSION='25';
+try{ const d=new Date(document.lastModified); document.getElementById('verLine').textContent='Music Alley v'+APP_VERSION+' · updated '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){}
 
 /* ========= STARS ========= */
 (function(){
