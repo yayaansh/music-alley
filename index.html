@@ -46,7 +46,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .tag{margin:6px 0 10px;color:var(--muted);font-size:clamp(16px,2.6vw,22px)}
 .creator{margin:0 0 30px;font-size:clamp(17px,2.8vw,24px);color:var(--ink);letter-spacing:.3px}
 .creator b{background:linear-gradient(90deg,var(--accent),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
-.rooms{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;width:100%;max-width:760px}
+.rooms{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;width:100%;max-width:900px}
 .room{position:relative;overflow:hidden;border-radius:32px;padding:28px 22px 24px;text-align:left;background:var(--card);border:2px solid rgba(255,255,255,.12);
   transition:transform .15s,box-shadow .15s;min-height:190px}
 .room:hover{transform:translateY(-4px)}
@@ -273,6 +273,30 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .kdone audio{width:100%}
 .kbtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .scard .thumb.emoji.rec{background:linear-gradient(135deg,#ff4d6d,var(--purple))}
+/* questions */
+.room.questions .glow{background:var(--green)}
+.room.questions{box-shadow:0 10px 40px rgba(6,214,160,.18)}
+.ans{display:grid;grid-template-columns:1fr;gap:12px}
+.ans.pic{grid-template-columns:minmax(120px,200px) 1fr}
+.ans img{width:100%;border-radius:16px;object-fit:cover;max-height:220px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ans h3{margin:0 0 6px;font-size:24px}
+.ans p{margin:0;font-size:clamp(17px,2.6vw,20px);line-height:1.5}
+.ans .src{color:var(--muted);font-size:13px;margin-top:6px}
+.ans .hi{color:var(--accent);font-size:clamp(17px,2.6vw,20px);line-height:1.6;margin-top:10px}
+.abtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.abtns .toggle{min-height:46px;font-size:15px}
+.gcard{background:var(--card);border-radius:20px;padding:14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+.gcard img{width:72px;height:72px;border-radius:12px;object-fit:cover;flex:0 0 auto}
+.gcard b{display:block;font-size:17px;margin-bottom:4px}
+.gcard p{margin:0;color:var(--muted);font-size:15px;line-height:1.4}
+.gcard small{color:var(--cyan);font-size:13px}
+.gcard .toggle{margin-left:auto;min-height:44px;font-size:15px;flex:0 0 auto}
+.gsetup{background:var(--card);border-radius:22px;padding:16px 18px;font-size:16px;line-height:1.5;margin-top:12px}
+.gsetup ol{margin:8px 0 10px;padding-left:22px}
+.gsetup li{margin-bottom:6px}
+.gsetup a{color:var(--cyan)}
+.gsetup code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:6px;font-size:14px}
+@media (max-width:480px){.ans.pic{grid-template-columns:1fr}}
 /* animals */
 .room.animals .glow{background:#ffd166}
 .room.animals{box-shadow:0 10px 40px rgba(255,209,102,.18)}
@@ -337,6 +361,12 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
       <span class="big">🐧</span>
       <h3>Animal Alley</h3>
       <p>Baby chicks, pheasants, ostriches, penguins and friends. Watch them, hear their songs, learn a fun fact.</p>
+      <span class="glow"></span>
+    </button>
+    <button class="room questions" onclick="go('questions')">
+      <span class="big">❓</span>
+      <h3>Questions Alley</h3>
+      <p>Ask anything, by typing or speaking. Hear the answer in English or Hindi, then watch a video about it.</p>
       <span class="glow"></span>
     </button>
   </div>
@@ -481,6 +511,27 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   <div class="bigpic" id="qBig" hidden onclick="this.hidden=true"></div>
   <div class="fact info" id="qInfo"></div>
   <div class="fact info" id="qWeigh"></div>
+</section>
+
+<!-- QUESTIONS -->
+<section id="questions" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('home')" aria-label="Back">←</button>
+    <h2>Questions Alley <small>Ask me anything</small></h2>
+  </div>
+  <div class="addbox searchbox">
+    <div class="addrow">
+      <input id="qAsk" type="search" placeholder="Ask anything… Why is the sky blue?" enterkeyhint="search" onkeydown="if(event.key==='Enter')askQuestion()">
+      <button class="toggle on" onclick="askQuestion()">❓ Ask</button>
+      <button class="toggle mic" id="qMic" onclick="voiceAsk()" title="Say your question">🎤</button>
+    </div>
+    <div class="chips2" id="qIdeas"></div>
+  </div>
+  <div class="fact info" id="qAnswer" hidden></div>
+  <div class="player" id="qvplayer"></div>
+  <div class="results" id="qvideos" data-player="qvplayer"></div>
+  <div id="gResults"></div>
+  <div class="homerow" id="qRecent" hidden><h4>🕒 Asked before</h4><div class="chips2" id="qRecentChips"></div></div>
 </section>
 
 <!-- ANIMALS -->
@@ -896,6 +947,7 @@ function go(id){
   const sr=document.getElementById('sresults'); if(sr) sr.innerHTML='';
   const ar=document.getElementById('aresults'); if(ar) ar.innerHTML='';
   const qr=document.getElementById('qresults'); if(qr) qr.innerHTML='';
+  const qv=document.getElementById('qvideos'); if(qv) qv.innerHTML='';
   window.scrollTo(0,0);
   syncToggles();
 }
@@ -1116,17 +1168,19 @@ function addYtItem(id,title){
 
 /* ---- say it instead of typing it (speech recognition built into Safari / Chrome) ---- */
 let recog=null;
-function voiceSearch(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; const inp=document.getElementById('ytQuery'), btn=document.getElementById('micBtn'), box=document.getElementById('ytResults');
+function voiceSearch(){ listenInto('ytQuery','micBtn','ytResults',()=>ytSearch()); }
+function voiceAsk(){ listenInto('qAsk','qMic','gResults',()=>askQuestion()); }
+function listenInto(inpId,btnId,boxId,onDone){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; const inp=document.getElementById(inpId), btn=document.getElementById(btnId), box=document.getElementById(boxId);
   if(!SR){ box.innerHTML='<div class="rmsg">This browser cannot listen. On the iPad, open Music Alley in Safari.</div>'; return; }
   if(recog){ try{ recog.stop(); }catch(e){} return; }
   try{ recog=new SR(); }catch(e){ box.innerHTML='<div class="rmsg">Listening is not available here.</div>'; return; }
   recog.lang='en-IN'; recog.interimResults=true; recog.maxAlternatives=1; recog.continuous=false;
-  const oldPh=inp.placeholder; inp.value=''; inp.placeholder='Listening… say a song name'; btn.textContent='👂'; btn.classList.add('on'); blipNote(880);
+  const oldPh=inp.placeholder; inp.value=''; inp.placeholder=inpId==='qAsk'?'Listening… ask your question':'Listening… say a song name'; btn.textContent='👂'; btn.classList.add('on'); blipNote(880);
   let heard='';
   recog.onresult=e=>{ heard=''; for(const r of e.results) heard+=r[0].transcript; inp.value=heard; };
   recog.onerror=e=>{ inp.placeholder=e.error==='not-allowed'||e.error==='service-not-allowed'?'Allow the microphone, then tap 🎤 again':'Did not catch that. Tap 🎤 and say it again'; };
-  recog.onend=()=>{ recog=null; btn.textContent='🎤'; btn.classList.remove('on'); if(heard.trim()){ inp.value=heard.trim(); inp.placeholder=oldPh; ytSearch(); } else if(inp.placeholder.startsWith('Listening')) inp.placeholder='Did not catch that. Tap 🎤 and say it again'; };
+  recog.onend=()=>{ recog=null; btn.textContent='🎤'; btn.classList.remove('on'); if(heard.trim()){ inp.value=heard.trim(); inp.placeholder=oldPh; onDone(); } else if(inp.placeholder.startsWith('Listening')) inp.placeholder='Did not catch that. Tap 🎤 and say it again'; };
   try{ recog.start(); }catch(e){ recog=null; btn.textContent='🎤'; btn.classList.remove('on'); inp.placeholder=oldPh; }
 }
 
@@ -1760,6 +1814,109 @@ async function earthPhoto(){
   }catch(e){ card.innerHTML='<span class="dot" style="background:var(--green)"></span><span>🌍 NASA’s Earth camera is not answering right now.</span>'; }
 }
 
+/* ========= QUESTIONS ALLEY: short answers from Simple English Wikipedia, read aloud, in Hindi too; kid-safe Google results when set up ========= */
+const QUESTION_IDEAS=['Why is the sky blue?','How do birds fly?','What is the biggest animal?','Why do we have seasons?','How far is the Moon?','What do penguins eat?','Why do cats purr?','How do rainbows form?','What is a volcano?','Who invented the telephone?'];
+let askedBefore=[]; try{ askedBefore=JSON.parse(localStorage.getItem('ma_questions')||'[]'); }catch(e){}
+let answerNow=null;
+(function buildQuestions(){
+  const box=document.getElementById('qIdeas'); QUESTION_IDEAS.forEach(q=>{ const b=document.createElement('button'); b.textContent=q; b.onclick=()=>askQuestion(q); box.appendChild(b); });
+  renderAsked();
+})();
+function renderAsked(){
+  const row=document.getElementById('qRecent'), box=document.getElementById('qRecentChips'); row.hidden=!askedBefore.length; box.innerHTML='';
+  askedBefore.forEach(q=>{ const b=document.createElement('button'); b.textContent=q; b.onclick=()=>askQuestion(q); box.appendChild(b); });
+}
+function cleanQuestion(q){ // turn "why is the sky blue?" into something an encyclopedia can find
+  return q.replace(/[?!.]/g,' ').replace(/^(why|what|how|who|when|where|which|can|do|does|did|is|are|was|were|tell me|explain)\b\s*(is|are|was|were|do|does|did|the|a|an|about|of)?\s*/i,'').replace(/\b(the|a|an|of|do|does|is|are)\b/gi,' ').replace(/\s+/g,' ').trim()||q;
+}
+async function wikiLookup(q){
+  const hosts=['simple.wikipedia.org','en.wikipedia.org'];
+  for(const host of hosts){
+    for(const term of [q,cleanQuestion(q)]){
+      try{
+        const r=await fetch(`https://${host}/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(term)}&srlimit=3&format=json&origin=*`);
+        const j=await r.json(); const hits=(j.query&&j.query.search||[]).filter(h=>!NOT_FOR_KIDS.test(h.title+' '+(h.snippet||'')));
+        for(const h of hits){
+          const sr=await fetch(`https://${host}/api/rest_v1/page/summary/${encodeURIComponent(h.title.replace(/ /g,'_'))}`); const sj=await sr.json();
+          if(sj.type==='disambiguation'||!sj.extract||sj.extract.length<40) continue;
+          if(NOT_FOR_KIDS.test(sj.extract)) continue;
+          return {host,title:sj.title,extract:sj.extract,thumb:sj.thumbnail&&sj.thumbnail.source,enTitle:sj.titles&&sj.titles.canonical||sj.title};
+        }
+      }catch(e){}
+    }
+  }
+  return null;
+}
+function firstSentences(t,n){ const parts=t.replace(/\s+/g,' ').match(/[^.!?]+[.!?]+(\s|$)/g)||[t]; return parts.slice(0,n).join('').trim(); }
+async function askQuestion(q){
+  const inp=document.getElementById('qAsk'); if(typeof q!=='string') q=inp.value.trim(); if(!q) return; inp.value=q;
+  const box=document.getElementById('qAnswer'); box.hidden=false; stopAll(); document.getElementById('qvplayer').innerHTML=''; document.getElementById('qvideos').innerHTML='';
+  if(NOT_FOR_KIDS.test(q)){ box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>Let’s ask about something else. 😊 Try one of the ideas above!</span></div>'; return; }
+  box.innerHTML='<div class="lead"><span class="dot" style="background:var(--green)"></span><span>Thinking… 🤔</span></div>';
+  askedBefore=[q,...askedBefore.filter(x=>x.toLowerCase()!==q.toLowerCase())].slice(0,8); try{ localStorage.setItem('ma_questions',JSON.stringify(askedBefore)); }catch(e){} renderAsked();
+  const a=await wikiLookup(q);
+  if(!a){ box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>I could not find a simple answer for that. Try asking it a different way, or tap an idea above.</span></div>'; gSearch(q); return; }
+  answerNow={...a,q,short:firstSentences(a.extract,3)};
+  renderAnswer(false); gSearch(q);
+}
+function renderAnswer(full){
+  const a=answerNow, box=document.getElementById('qAnswer'); const text=full?a.extract:a.short;
+  box.innerHTML=`<div class="ans${a.thumb?' pic':''}">${a.thumb?`<img src="${a.thumb}" alt="">`:''}<div><h3>${esc(a.title)}</h3><p id="qText">${esc(text)}</p>${a.hindi?`<p class="hi" id="qHi">${esc(a.hindi)}</p>`:''}<div class="src">From ${a.host==='simple.wikipedia.org'?'Simple English Wikipedia':'Wikipedia'}</div></div></div>
+    <div class="abtns"><button class="toggle on" onclick="readAnswer()">🔊 Read it to me</button><button class="toggle" onclick="answerInHindi()">🇮🇳 In Hindi</button>${(!full&&a.extract.length>a.short.length)?'<button class="toggle" onclick="renderAnswer(true)">📖 Tell me more</button>':''}<button class="toggle" onclick="answerVideo()">▶ Watch a video</button></div>`;
+}
+function readAnswer(){ if(!answerNow) return; if('speechSynthesis' in window) speechSynthesis.cancel(); speak(answerNow.title+'. '+document.getElementById('qText').textContent,'en-US',null,.95); }
+async function answerInHindi(){
+  const a=answerNow; if(!a) return; const btn=[...document.querySelectorAll('#qAnswer .abtns button')].find(b=>b.textContent.includes('Hindi')); if(btn) btn.textContent='🇮🇳 Finding Hindi…';
+  try{
+    if(!a.hindi){
+      let hiText=null;
+      try{ const r=await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=langlinks&lllang=hi&titles=${encodeURIComponent(a.enTitle)}&format=json&origin=*`); const j=await r.json();
+        const page=Object.values(j.query.pages)[0]; const hiTitle=page&&page.langlinks&&page.langlinks[0]&&page.langlinks[0]['*'];
+        if(hiTitle){ const sr=await fetch(`https://hi.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(hiTitle.replace(/ /g,'_'))}`); const sj=await sr.json(); if(sj.extract&&sj.extract.length>30) hiText=firstSentences(sj.extract,3); } }catch(e){}
+      if(!hiText) hiText=await translateText(firstSentences(a.short,2),'hi');
+      a.hindi=hiText;
+    }
+    renderAnswer(false);
+    if('speechSynthesis' in window) speechSynthesis.cancel(); speak(a.hindi,'hi-IN',null,.9);
+  }catch(e){ if(btn) btn.textContent='🇮🇳 In Hindi'; document.getElementById('qAnswer').insertAdjacentHTML('beforeend','<div class="src">Could not get the Hindi version right now.</div>'); }
+}
+function answerVideo(){ const a=answerNow; if(!a) return; stopAll(); ytSearch(a.title+' for kids explained',document.getElementById('qvideos'),{max:6}).then(()=>document.getElementById('qvideos').scrollIntoView({behavior:'smooth',block:'start'})); }
+
+/* kid-safe Google results through a Programmable Search Engine (only children's sites, SafeSearch on) */
+const DEFAULT_CX=''; // paste the search engine id here to build it in
+function gCx(){ try{ return localStorage.getItem('ma_cx')||DEFAULT_CX; }catch(e){ return DEFAULT_CX; } }
+function saveCx(){ const v=(document.getElementById('cxInput').value||'').trim(); try{ if(v) localStorage.setItem('ma_cx',v); else localStorage.removeItem('ma_cx'); }catch(e){} const q=document.getElementById('qAsk').value.trim(); if(q) gSearch(q); else gSearch(''); }
+function gSetupCard(msg){
+  return `<div class="gsetup"><b>🔎 Google answers for kids (one-time setup)</b>${msg?'<div class="src" style="color:var(--pink);margin:6px 0">'+esc(msg)+'</div>':''}
+    <ol><li>On a computer, open <a href="https://programmablesearchengine.google.com/controlpanel/create" target="_blank" rel="noopener">Google Programmable Search</a>. Name it <i>Music Alley Kids</i>, choose <b>Search specific sites</b>, and add children’s sites, for example: <code>kids.britannica.com</code> <code>kids.nationalgeographic.com</code> <code>www.ducksters.com</code> <code>kids.kiddle.co</code> <code>simple.wikipedia.org</code> <code>www.dkfindout.com</code> <code>kidshealth.org</code> <code>www.sciencekids.co.nz</code>. Turn <b>SafeSearch</b> on and create it.</li>
+    <li>Copy the <b>Search engine ID</b> it shows (letters and numbers).</li>
+    <li>In <a href="https://console.cloud.google.com/apis/library/customsearch.googleapis.com" target="_blank" rel="noopener">Google Cloud</a>, in the same project as the YouTube key, click <b>Enable</b> on the Custom Search API.</li>
+    <li>Paste the ID here. It is saved on this device.</li></ol>
+    <div class="addrow"><input id="cxInput" type="text" placeholder="Search engine ID" value="${esc(gCx())}" spellcheck="false"><button class="toggle on" onclick="saveCx()">Save</button></div>
+    <div class="src">Until then, answers come from Simple English Wikipedia, which already works.</div></div>`;
+}
+let gCache={}; try{ gCache=JSON.parse(localStorage.getItem('ma_gcache')||'{}'); }catch(e){}
+async function gSearch(q){
+  const box=document.getElementById('gResults'); const cx=gCx();
+  if(!cx){ box.innerHTML=gSetupCard(''); return; }
+  if(!q){ box.innerHTML=''; return; }
+  const ck=q.toLowerCase(); const hit=gCache[ck]; if(hit&&Date.now()-hit.t<7*864e5){ renderG(hit.items,q); return; }
+  box.innerHTML='<div class="rmsg">Looking on children’s websites…</div>';
+  try{
+    const r=await fetch(`https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(ytKey())}&cx=${encodeURIComponent(cx)}&safe=active&num=6&q=${encodeURIComponent(q)}`);
+    const j=await r.json();
+    if(j.error){ const m=j.error.message||''; box.innerHTML=/quota/i.test(m)?'<div class="rmsg">Today’s free Google answers are used up. They come back at about '+quotaResetText()+'.</div>':gSetupCard('Google said: '+m); return; }
+    const items=(j.items||[]).filter(it=>kidSafe({title:it.title,channelTitle:it.displayLink,description:it.snippet})).map(it=>({title:it.title,snippet:it.snippet,link:it.link,site:it.displayLink,thumb:it.pagemap&&it.pagemap.cse_thumbnail&&it.pagemap.cse_thumbnail[0]&&it.pagemap.cse_thumbnail[0].src||''}));
+    gCache[ck]={t:Date.now(),items}; try{ localStorage.setItem('ma_gcache',JSON.stringify(gCache)); }catch(e){}
+    renderG(items,q);
+  }catch(e){ box.innerHTML='<div class="rmsg">Could not reach Google right now.</div>'; }
+}
+function renderG(items,q){
+  const box=document.getElementById('gResults');
+  if(!items.length){ box.innerHTML='<div class="rmsg">The children’s websites had nothing for that question.</div>'; return; }
+  box.innerHTML='<h3 class="sub">🔎 From children’s websites</h3>'+items.map(it=>`<div class="gcard">${it.thumb?`<img src="${it.thumb}" alt="">`:''}<div><b>${esc(it.title)}</b><p>${esc(it.snippet)}</p><small>${esc(it.site)}</small></div><button class="toggle" onclick="window.open('${it.link.replace(/'/g,'%27')}','_blank','noopener')">Open ↗</button></div>`).join('');
+}
+
 /* ========= ANIMAL ALLEY ========= */
 const ANIMALS=[
  // birds (her favourites first)
@@ -1948,7 +2105,7 @@ function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
 
 /* version line: shows when this copy of the page was published, so an old cached copy is easy to spot */
-const APP_VERSION='25';
+const APP_VERSION='26';
 try{ const d=new Date(document.lastModified); document.getElementById('verLine').textContent='Music Alley v'+APP_VERSION+' · updated '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){}
 
 /* ========= STARS ========= */
