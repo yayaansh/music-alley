@@ -366,7 +366,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     <button class="room questions" onclick="go('questions')">
       <span class="big">❓</span>
       <h3>Questions Alley</h3>
-      <p>Ask anything, by typing or speaking. Hear the answer in English or Hindi, then watch a video about it.</p>
+      <p>Ask anything, by typing or speaking. Hear a simple answer in English or Hindi, watch a video, or look it up on Kiddle, the search engine for kids.</p>
       <span class="glow"></span>
     </button>
   </div>
@@ -1855,15 +1855,16 @@ async function askQuestion(q){
   box.innerHTML='<div class="lead"><span class="dot" style="background:var(--green)"></span><span>Thinking… 🤔</span></div>';
   askedBefore=[q,...askedBefore.filter(x=>x.toLowerCase()!==q.toLowerCase())].slice(0,8); try{ localStorage.setItem('ma_questions',JSON.stringify(askedBefore)); }catch(e){} renderAsked();
   const a=await wikiLookup(q);
-  if(!a){ box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>I could not find a simple answer for that. Try asking it a different way, or tap an idea above.</span></div>'; gSearch(q); return; }
+  if(!a){ answerNow={q}; box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>I could not find a simple answer for that. Try asking it a different way, tap an idea above, or look on Kiddle, the search engine for children.</span></div><div class="abtns"><button class="toggle" onclick="askKiddle()">🔎 Search Kiddle</button></div>'; return; }
   answerNow={...a,q,short:firstSentences(a.extract,3)};
   renderAnswer(false); gSearch(q);
 }
 function renderAnswer(full){
   const a=answerNow, box=document.getElementById('qAnswer'); const text=full?a.extract:a.short;
   box.innerHTML=`<div class="ans${a.thumb?' pic':''}">${a.thumb?`<img src="${a.thumb}" alt="">`:''}<div><h3>${esc(a.title)}</h3><p id="qText">${esc(text)}</p>${a.hindi?`<p class="hi" id="qHi">${esc(a.hindi)}</p>`:''}<div class="src">From ${a.host==='simple.wikipedia.org'?'Simple English Wikipedia':'Wikipedia'}</div></div></div>
-    <div class="abtns"><button class="toggle on" onclick="readAnswer()">🔊 Read it to me</button><button class="toggle" onclick="answerInHindi()">🇮🇳 In Hindi</button>${(!full&&a.extract.length>a.short.length)?'<button class="toggle" onclick="renderAnswer(true)">📖 Tell me more</button>':''}<button class="toggle" onclick="answerVideo()">▶ Watch a video</button></div>`;
+    <div class="abtns"><button class="toggle on" onclick="readAnswer()">🔊 Read it to me</button><button class="toggle" onclick="answerInHindi()">🇮🇳 In Hindi</button>${(!full&&a.extract.length>a.short.length)?'<button class="toggle" onclick="renderAnswer(true)">📖 Tell me more</button>':''}<button class="toggle" onclick="answerVideo()">▶ Watch a video</button><button class="toggle" onclick="askKiddle()">🔎 Search Kiddle</button></div>`;
 }
+function askKiddle(){ const q=(answerNow&&answerNow.q)||document.getElementById('qAsk').value.trim(); if(!q) return; window.open('https://www.kiddle.co/s.php?q='+encodeURIComponent(q),'_blank','noopener'); }
 function readAnswer(){ if(!answerNow) return; if('speechSynthesis' in window) speechSynthesis.cancel(); speak(answerNow.title+'. '+document.getElementById('qText').textContent,'en-US',null,.95); }
 async function answerInHindi(){
   const a=answerNow; if(!a) return; const btn=[...document.querySelectorAll('#qAnswer .abtns button')].find(b=>b.textContent.includes('Hindi')); if(btn) btn.textContent='🇮🇳 Finding Hindi…';
@@ -1897,7 +1898,8 @@ function gSetupCard(msg){
 }
 let gCache={}; try{ gCache=JSON.parse(localStorage.getItem('ma_gcache')||'{}'); }catch(e){}
 async function gSearch(q){
-  const box=document.getElementById('gResults'); const cx=gCx();
+  const box=document.getElementById('gResults'); box.innerHTML=''; return; // Google's search API is closed to new projects (Jan 2026); Kiddle button is offered on the answer card instead
+  const cx=gCx();
   if(!cx){ box.innerHTML=gSetupCard(''); return; }
   if(!q){ box.innerHTML=''; return; }
   const ck=q.toLowerCase(); const hit=gCache[ck]; if(hit&&Date.now()-hit.t<7*864e5){ renderG(hit.items,q); return; }
@@ -2105,7 +2107,7 @@ function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
 
 /* version line: shows when this copy of the page was published, so an old cached copy is easy to spot */
-const APP_VERSION='27';
+const APP_VERSION='28';
 try{ const d=new Date(document.lastModified); document.getElementById('verLine').textContent='Music Alley v'+APP_VERSION+' · updated '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){}
 
 /* ========= STARS ========= */
