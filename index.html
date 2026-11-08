@@ -366,7 +366,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
     <button class="room questions" onclick="go('questions')">
       <span class="big">❓</span>
       <h3>Questions Alley</h3>
-      <p>Ask anything, by typing or speaking. Hear a simple answer in English or Hindi, watch a video, or look it up on Kiddle, the search engine for kids.</p>
+      <p>Ask anything, by typing or speaking. Hear a simple answer in English or Hindi, watch a video, or look it up on Kiddle, the search engine for kids. Add a free Google key under ⚙️ for smarter answers.</p>
       <span class="glow"></span>
     </button>
   </div>
@@ -524,6 +524,19 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
       <input id="qAsk" type="search" placeholder="Ask anything… Why is the sky blue?" enterkeyhint="search" onkeydown="if(event.key==='Enter')askQuestion()">
       <button class="toggle on" onclick="askQuestion()">❓ Ask</button>
       <button class="toggle mic" id="qMic" onclick="voiceAsk()" title="Say your question">🎤</button>
+      <button class="toggle" onclick="toggleAiCard()" title="Answer settings">⚙️</button>
+    </div>
+    <div class="keycard" id="aiCard" hidden>
+      <b>Smarter answers</b> <span style="color:var(--muted)">(one-time setup, free, no card needed)</span>
+      <ol>
+        <li>On a computer, open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>, sign in with your Google account and click <b>Create API key</b>. If it asks for a project, pick the one you made for the YouTube key or let it create one.</li>
+        <li>Copy the key and paste it here. It is saved only on this device.</li>
+      </ol>
+      <div class="addrow">
+        <input id="aiKey" type="text" placeholder="Paste the Gemini key" autocomplete="off" spellcheck="false">
+        <button class="toggle on" onclick="saveAiKey()">Save</button>
+      </div>
+      <p class="note" style="margin:6px 0 0;text-align:left" id="aiStatus"></p>
     </div>
     <div class="chips2" id="qIdeas"></div>
   </div>
@@ -1848,20 +1861,56 @@ async function wikiLookup(q){
   return null;
 }
 function firstSentences(t,n){ const parts=t.replace(/\s+/g,' ').match(/[^.!?]+[.!?]+(\s|$)/g)||[t]; return parts.slice(0,n).join('').trim(); }
+
+/* smarter answers from Google Gemini (free tier, about 500 questions a day; key saved on this device). The encyclopedia is the fallback. */
+const AI_MODEL='gemini-3.5-flash-lite';
+function aiKey(){ try{ return localStorage.getItem('ma_aikey')||''; }catch(e){ return ''; } }
+function toggleAiCard(force){
+  const c=document.getElementById('aiCard'); c.hidden=force===undefined?!c.hidden:!force;
+  document.getElementById('aiStatus').textContent=aiKey()?'A key is saved. Answers come from Google Gemini, with the encyclopedia as backup.':'No key yet. Answers come from Simple English Wikipedia.';
+}
+function saveAiKey(){
+  const k=document.getElementById('aiKey').value.trim();
+  if(!k){ document.getElementById('aiStatus').textContent='Paste the key first.'; return; }
+  try{ localStorage.setItem('ma_aikey',k); }catch(e){}
+  document.getElementById('aiKey').value='';
+  document.getElementById('aiStatus').textContent='Saved! Ask a question.';
+  setTimeout(()=>toggleAiCard(false),900);
+}
+async function aiAsk(q,lang){
+  const key=aiKey(); if(!key) return null;
+  const sys='You answer questions for a young child, about 6 years old, in '+(lang==='hi'?'simple Hindi written in Devanagari':'simple English')+'. Reply with 3 or 4 short, warm, true sentences a child can understand. No lists, headings or emojis. Nothing scary, violent or grown-up, and avoid the words die, dead, death and kill. If the question is not suitable for a child, reply with only the word NOT_FOR_KIDS. Format: first line is a title of 2 to 4 words, then a blank line, then the answer.';
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({system_instruction:{parts:[{text:sys}]},contents:[{parts:[{text:q}]}],generationConfig:{temperature:.4,maxOutputTokens:1024}})});
+  const j=await r.json();
+  if(j.error) throw new Error(j.error.message||'Gemini error');
+  const text=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||'').join('').replace(/[*#]/g,'').trim();
+  if(!text) throw new Error('empty answer');
+  if(/NOT_FOR_KIDS/.test(text)||NOT_FOR_KIDS.test(text)) return {blocked:true};
+  const nl=text.indexOf('\n'); const title=nl>0?text.slice(0,nl).trim():''; const body=(nl>0?text.slice(nl):text).replace(/\s+/g,' ').trim();
+  return {title:title||q,extract:body};
+}
 async function askQuestion(q){
   const inp=document.getElementById('qAsk'); if(typeof q!=='string') q=inp.value.trim(); if(!q) return; inp.value=q;
   const box=document.getElementById('qAnswer'); box.hidden=false; stopAll(); document.getElementById('qvplayer').innerHTML=''; document.getElementById('qvideos').innerHTML='';
   if(NOT_FOR_KIDS.test(q)){ box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>Let’s ask about something else. 😊 Try one of the ideas above!</span></div>'; return; }
   box.innerHTML='<div class="lead"><span class="dot" style="background:var(--green)"></span><span>Thinking… 🤔</span></div>';
   askedBefore=[q,...askedBefore.filter(x=>x.toLowerCase()!==q.toLowerCase())].slice(0,8); try{ localStorage.setItem('ma_questions',JSON.stringify(askedBefore)); }catch(e){} renderAsked();
-  const a=await wikiLookup(q);
-  if(!a){ answerNow={q}; box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>I could not find a simple answer for that. Try asking it a different way, tap an idea above, or look on Kiddle, the search engine for children.</span></div><div class="abtns"><button class="toggle" onclick="askKiddle()">🔎 Search Kiddle</button></div>'; return; }
-  answerNow={...a,q,short:firstSentences(a.extract,3)};
+  let a=null, note='';
+  try{
+    const ai=await aiAsk(q);
+    if(ai&&ai.blocked){ box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>Let’s ask about something else. 😊 Try one of the ideas above!</span></div>'; return; }
+    if(ai) a={host:'gemini',title:ai.title,extract:ai.extract,enTitle:q};
+  }catch(e){ note=/quota|exhaust|429|limit/i.test(e.message)?'Today’s free smart answers are used up, so this one is from the encyclopedia.':'Gemini did not answer, so this one is from the encyclopedia.'; }
+  if(!a) a=await wikiLookup(q);
+  if(!a){ answerNow={q}; box.innerHTML='<div class="lead"><span class="dot" style="background:var(--pink)"></span><span>I could not find a simple answer for that. Try asking it a different way, tap an idea above, or look on Kiddle, the search engine for children.'+(aiKey()?'':' Papa can turn on smarter answers with ⚙️.')+'</span></div><div class="abtns"><button class="toggle" onclick="askKiddle()">🔎 Search Kiddle</button></div>'; return; }
+  answerNow={...a,q,note,short:a.host==='gemini'?a.extract:firstSentences(a.extract,3)};
   renderAnswer(false); gSearch(q);
 }
 function renderAnswer(full){
   const a=answerNow, box=document.getElementById('qAnswer'); const text=full?a.extract:a.short;
-  box.innerHTML=`<div class="ans${a.thumb?' pic':''}">${a.thumb?`<img src="${a.thumb}" alt="">`:''}<div><h3>${esc(a.title)}</h3><p id="qText">${esc(text)}</p>${a.hindi?`<p class="hi" id="qHi">${esc(a.hindi)}</p>`:''}<div class="src">From ${a.host==='simple.wikipedia.org'?'Simple English Wikipedia':'Wikipedia'}</div></div></div>
+  const from=a.host==='gemini'?'Google Gemini':a.host==='simple.wikipedia.org'?'Simple English Wikipedia':'Wikipedia';
+  box.innerHTML=`<div class="ans${a.thumb?' pic':''}">${a.thumb?`<img src="${a.thumb}" alt="">`:''}<div><h3>${esc(a.title)}</h3><p id="qText">${esc(text)}</p>${a.hindi?`<p class="hi" id="qHi">${esc(a.hindi)}</p>`:''}<div class="src">From ${from}${a.note?' · '+esc(a.note):''}</div></div></div>
     <div class="abtns"><button class="toggle on" onclick="readAnswer()">🔊 Read it to me</button><button class="toggle" onclick="answerInHindi()">🇮🇳 In Hindi</button>${(!full&&a.extract.length>a.short.length)?'<button class="toggle" onclick="renderAnswer(true)">📖 Tell me more</button>':''}<button class="toggle" onclick="answerVideo()">▶ Watch a video</button><button class="toggle" onclick="askKiddle()">🔎 Search Kiddle</button></div>`;
 }
 function askKiddle(){ const q=(answerNow&&answerNow.q)||document.getElementById('qAsk').value.trim(); if(!q) return; window.open('https://www.kiddle.co/s.php?q='+encodeURIComponent(q),'_blank','noopener'); }
@@ -1871,7 +1920,8 @@ async function answerInHindi(){
   try{
     if(!a.hindi){
       let hiText=null;
-      try{ const r=await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=langlinks&lllang=hi&titles=${encodeURIComponent(a.enTitle)}&format=json&origin=*`); const j=await r.json();
+      if(a.host==='gemini'){ try{ const h=await aiAsk(a.q,'hi'); if(h&&h.extract) hiText=h.extract; }catch(e){} }
+      else try{ const r=await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=langlinks&lllang=hi&titles=${encodeURIComponent(a.enTitle)}&format=json&origin=*`); const j=await r.json();
         const page=Object.values(j.query.pages)[0]; const hiTitle=page&&page.langlinks&&page.langlinks[0]&&page.langlinks[0]['*'];
         if(hiTitle){ const sr=await fetch(`https://hi.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(hiTitle.replace(/ /g,'_'))}`); const sj=await sr.json(); if(sj.extract&&sj.extract.length>30) hiText=firstSentences(sj.extract,3); } }catch(e){}
       if(!hiText) hiText=await translateText(firstSentences(a.short,2),'hi');
@@ -1881,7 +1931,7 @@ async function answerInHindi(){
     if('speechSynthesis' in window) speechSynthesis.cancel(); speak(a.hindi,'hi-IN',null,.9);
   }catch(e){ if(btn) btn.textContent='🇮🇳 In Hindi'; document.getElementById('qAnswer').insertAdjacentHTML('beforeend','<div class="src">Could not get the Hindi version right now.</div>'); }
 }
-function answerVideo(){ const a=answerNow; if(!a) return; stopAll(); ytSearch(a.title+' for kids explained',document.getElementById('qvideos'),{max:6}).then(()=>document.getElementById('qvideos').scrollIntoView({behavior:'smooth',block:'start'})); }
+function answerVideo(){ const a=answerNow; if(!a) return; stopAll(); ytSearch((a.host==='gemini'?a.q:a.title)+' for kids explained',document.getElementById('qvideos'),{max:6}).then(()=>document.getElementById('qvideos').scrollIntoView({behavior:'smooth',block:'start'})); }
 
 /* kid-safe Google results through a Programmable Search Engine (only children's sites, SafeSearch on) */
 const DEFAULT_CX='456daecba793b4f87'; // Music Alley Kids: a Programmable Search Engine limited to children's sites, SafeSearch on
@@ -2107,7 +2157,7 @@ function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
 
 /* version line: shows when this copy of the page was published, so an old cached copy is easy to spot */
-const APP_VERSION='28';
+const APP_VERSION='29';
 try{ const d=new Date(document.lastModified); document.getElementById('verLine').textContent='Music Alley v'+APP_VERSION+' · updated '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){}
 
 /* ========= STARS ========= */
