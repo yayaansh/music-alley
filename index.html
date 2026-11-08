@@ -1883,7 +1883,7 @@ async function answerInHindi(){
 function answerVideo(){ const a=answerNow; if(!a) return; stopAll(); ytSearch(a.title+' for kids explained',document.getElementById('qvideos'),{max:6}).then(()=>document.getElementById('qvideos').scrollIntoView({behavior:'smooth',block:'start'})); }
 
 /* kid-safe Google results through a Programmable Search Engine (only children's sites, SafeSearch on) */
-const DEFAULT_CX=''; // paste the search engine id here to build it in
+const DEFAULT_CX='456daecba793b4f87'; // Music Alley Kids: a Programmable Search Engine limited to children's sites, SafeSearch on
 function gCx(){ try{ return localStorage.getItem('ma_cx')||DEFAULT_CX; }catch(e){ return DEFAULT_CX; } }
 function saveCx(){ const v=(document.getElementById('cxInput').value||'').trim(); try{ if(v) localStorage.setItem('ma_cx',v); else localStorage.removeItem('ma_cx'); }catch(e){} const q=document.getElementById('qAsk').value.trim(); if(q) gSearch(q); else gSearch(''); }
 function gSetupCard(msg){
@@ -1905,7 +1905,7 @@ async function gSearch(q){
   try{
     const r=await fetch(`https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(ytKey())}&cx=${encodeURIComponent(cx)}&safe=active&num=6&q=${encodeURIComponent(q)}`);
     const j=await r.json();
-    if(j.error){ const m=j.error.message||''; box.innerHTML=/quota/i.test(m)?'<div class="rmsg">Today’s free Google answers are used up. They come back at about '+quotaResetText()+'.</div>':gSetupCard('Google said: '+m); return; }
+    if(j.error){ const m=j.error.message||''; box.innerHTML=/quota/i.test(m)?'<div class="rmsg">Today’s free Google answers are used up. They come back at about '+quotaResetText()+'.</div>':/blocked|not been used|disabled|forbidden/i.test(m)?'<div class="rmsg">Google answers are almost ready. Papa still needs to allow the <b>Custom Search API</b> on the key in Google Cloud.</div>':gSetupCard('Google said: '+m); return; }
     const items=(j.items||[]).filter(it=>kidSafe({title:it.title,channelTitle:it.displayLink,description:it.snippet})).map(it=>({title:it.title,snippet:it.snippet,link:it.link,site:it.displayLink,thumb:it.pagemap&&it.pagemap.cse_thumbnail&&it.pagemap.cse_thumbnail[0]&&it.pagemap.cse_thumbnail[0].src||''}));
     gCache[ck]={t:Date.now(),items}; try{ localStorage.setItem('ma_gcache',JSON.stringify(gCache)); }catch(e){}
     renderG(items,q);
@@ -2105,7 +2105,7 @@ function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
 
 /* version line: shows when this copy of the page was published, so an old cached copy is easy to spot */
-const APP_VERSION='26';
+const APP_VERSION='27';
 try{ const d=new Date(document.lastModified); document.getElementById('verLine').textContent='Music Alley v'+APP_VERSION+' · updated '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){}
 
 /* ========= STARS ========= */
