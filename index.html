@@ -151,6 +151,12 @@ a.toggle{text-decoration:none;display:inline-flex;align-items:center;color:inher
 .st.hl{filter:brightness(1.3) drop-shadow(0 0 8px rgba(255,255,255,.8));stroke:#fff;stroke-width:1.2}
 .st.dim{opacity:.35}
 .cap{fill:#fff;stroke:#070a1f;stroke-width:1;pointer-events:none}
+.capdot{fill:#fff;stroke:#070a1f;stroke-width:.7;pointer-events:none}
+.capdot.on{fill:var(--accent);stroke:#fff}
+.caphit{fill:transparent;cursor:pointer}
+.capname{fill:#fff;font-weight:700;font-size:5.2px;paint-order:stroke;stroke:#070a1f;stroke-width:1.6px;pointer-events:none;font-family:inherit}
+.capname[hidden]{display:none}
+.capfact{display:flex;gap:10px;align-items:flex-start;line-height:1.45}
 .capl{fill:#fff;font-weight:700;paint-order:stroke;stroke:#070a1f;stroke-width:3;pointer-events:none;font-family:inherit}
 .maptip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 14px;border-radius:20px;font-size:15px;pointer-events:none;white-space:nowrap}
 .minimap{display:grid;grid-template-columns:minmax(120px,200px) 1fr;gap:14px;align-items:center;background:var(--card);border-radius:22px;padding:12px 16px;margin-bottom:12px}
@@ -436,7 +442,8 @@ body.calm *,body.calm *::before,body.calm *::after{animation:none!important;tran
   <div id="continents"></div>
   <h3 class="sub" id="cont-india"><img src="https://flagcdn.com/w40/in.png" alt=""> Indian states</h3>
   <p class="tip" style="text-align:left;margin-top:-6px">Indian states have no official flags, so each one has a colourful card. A few fly a famous flag of their own, like Maharashtra and Karnataka, and those are shown. Tap a state on the map or a card below.</p>
-  <div class="mapwrap"><svg id="indiaMap" role="img" aria-label="Map of India"></svg><div class="maptip" id="mapTip">Tap a state</div></div>
+  <div class="controls" style="margin:0 0 10px"><button class="toggle" id="capToggle" onclick="toggleCapNames()">🏛️ Show capital names</button><span class="tip" style="margin:0;text-align:left">Tap a ⭐ dot to hear a capital. Tap a state to visit it.</span></div>
+  <div class="mapwrap"><svg id="indiaMap" role="img" aria-label="Map of India with state capitals"></svg><div class="maptip" id="mapTip">Tap a state or a capital</div></div>
   <div class="grid" id="stateGrid"></div>
 </section>
 
@@ -751,6 +758,63 @@ const FLAGS_IN={
  sk:{name:'Old Kingdom of Sikkim flag',note:'white with a red border and a Buddhist wheel, used until Sikkim joined India in 1975.',
      svg:`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 214'><rect width='320' height='214' fill='#c8102e'/><rect x='14' y='14' width='292' height='186' fill='#ffffff'/><text x='160' y='150' font-size='120' text-anchor='middle' fill='#c8102e'>☸</text></svg>`},
 };
+/* one friendly fact about each capital city */
+const CAP_FACTS={
+ ap:'Amaravati sits beside the Krishna River and is being built as a brand-new planned capital.',
+ ar:'Itanagar is named after Ita Fort, a fort made of bricks hundreds of years ago. “Ita” means brick.',
+ as:'Dispur is a small part of the big city of Guwahati, on the mighty Brahmaputra River.',
+ br:'Patna is one of the oldest cities in the world. Long ago it was called Pataliputra.',
+ cg:'Raipur is the biggest city of Chhattisgarh, and a new planned city called Nava Raipur has been built next to it.',
+ ga:'Panaji sits on the Mandovi River and has colourful Portuguese-style houses.',
+ gj:'Gandhinagar is named after Mahatma Gandhi and is one of India’s greenest planned cities.',
+ hr:'Chandigarh is the capital of two states, Haryana and Punjab, and was designed by the architect Le Corbusier.',
+ hp:'Shimla was the summer capital of India long ago, and a little toy train climbs the hills to reach it.',
+ jh:'Ranchi is called the City of Waterfalls.',
+ ka:'Bengaluru is called the Garden City and the Silicon Valley of India.',
+ kl:'Thiruvananthapuram means “the city of Lord Anantha”, and it is home to the Padmanabhaswamy Temple.',
+ mp:'Bhopal is called the City of Lakes.',
+ mh:'Mumbai is India’s biggest city, built on what were once seven islands.',
+ mn:'Imphal has Ima Keithel, a huge market run entirely by women.',
+ ml:'Shillong is called the Scotland of the East and loves music.',
+ mz:'Aizawl is built along steep hill ridges, more than a kilometre above the sea.',
+ nl:'Kohima sits high in the hills, and the Hornbill Festival is held just outside it every December.',
+ od:'Bhubaneswar is called the Temple City of India.',
+ pb:'Chandigarh is the capital of two states, Punjab and Haryana, and is famous for its Rock Garden.',
+ rj:'Jaipur is called the Pink City because its old buildings are painted pink.',
+ sk:'From Gangtok you can see Kangchenjunga, the third highest mountain in the world.',
+ tn:'Chennai has Marina Beach, one of the longest city beaches in the world.',
+ tg:'Hyderabad is called the City of Pearls and is famous for the Charminar.',
+ tr:'Agartala has the white Ujjayanta Palace and lies very close to Bangladesh.',
+ up:'Lucknow is called the City of Nawabs and is famous for its polite manners.',
+ uk:'Dehradun lies in a valley between the Ganga and Yamuna rivers, at the foot of the Himalayas.',
+ wb:'Kolkata is called the City of Joy and had India’s first metro railway.',
+ dl:'New Delhi is the capital of all of India, home to the Parliament and Rashtrapati Bhavan.',
+};
+/* union territories: grey on the map, with their capitals */
+const UTS={
+ 'Andaman and Nicobar Islands':{cap:'Sri Vijaya Puram (Port Blair)',at:[11.62,92.73]},
+ 'Chandigarh':{cap:'Chandigarh',at:[30.73,76.78]},
+ 'Dadra and Nagar Haveli and Daman and Diu':{cap:'Daman',at:[20.40,72.83]},
+ 'Jammu and Kashmir':{cap:'Srinagar in summer and Jammu in winter',short:'Srinagar',at:[34.08,74.80]},
+ 'Ladakh':{cap:'Leh',at:[34.15,77.58]},
+ 'Lakshadweep':{cap:'Kavaratti',at:[10.57,72.64]},
+ 'Puducherry':{cap:'Puducherry',at:[11.94,79.81]},
+};
+/* every capital once (Chandigarh serves two states and is a union territory itself) */
+function capitalList(){
+  const out=[]; const add=(key,name,lat,lon,owners,ids,say)=>{ const hit=out.find(o=>Math.abs(o.lat-lat)<.05&&Math.abs(o.lon-lon)<.05); if(hit){ owners.forEach(x=>{ if(!hit.owners.includes(x)) hit.owners.push(x); }); ids.forEach(x=>hit.ids.push(x)); } else out.push({key,name,lat,lon,owners:[...owners],ids:[...ids],say}); };
+  STATES.forEach(st=>{ const c=CAPS[st.id]; if(c) add(st.id,st.cap,c[0],c[1],[st.name],[st.id]); });
+  Object.entries(UTS).forEach(([n,u])=>{ if(n==='Chandigarh') return; add('ut:'+n,u.short||u.cap,u.at[0],u.at[1],[n],[],u.cap); });
+  return out;
+}
+function listAnd(a){ return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1]; }
+let capNamesOn=false; try{ capNamesOn=localStorage.getItem('ma_capnames')==='on'; }catch(e){}
+function toggleCapNames(){
+  capNamesOn=!capNamesOn; try{ localStorage.setItem('ma_capnames',capNamesOn?'on':'off'); }catch(e){}
+  document.querySelectorAll('#indiaMap .capname').forEach(t=>t.toggleAttribute('hidden',!capNamesOn));
+  const b=document.getElementById('capToggle'); b.classList.toggle('on',capNamesOn); b.textContent=capNamesOn?'🏛️ Hide capital names':'🏛️ Show capital names';
+  document.getElementById('mapTip').textContent=capNamesOn?'These are the capital cities':'Tap a state or a capital';
+}
 function cardSvg(st){
   if(FLAGS_IN[st.id]) return 'data:image/svg+xml;utf8,'+encodeURIComponent(FLAGS_IN[st.id].svg);
   const svg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 214'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${st.c[0]}'/><stop offset='1' stop-color='${st.c[1]}'/></linearGradient></defs><rect width='320' height='214' fill='url(#g)'/><circle cx='160' cy='107' r='78' fill='rgba(255,255,255,0.22)'/><text x='160' y='146' font-size='104' text-anchor='middle'>${st.emoji}</text></svg>`;
@@ -1006,7 +1070,7 @@ function countryAsSong(c){
     list.forEach(c=>{
       const s=songFor(c[0]);
       const b=document.createElement('button'); b.className='flag-card';
-      b.innerHTML=`<img src="${flagUrl(c[0],320)}" alt="" loading="lazy"><span class="code">${c[0].toUpperCase().slice(0,3)}</span><b>${c[1]}</b><small>${s?'🎵 '+s.title:c[3]}</small><span class="badge" hidden>🌈</span>`+(s?'<span class="songmark">🎵 song</span>':'');
+      b.innerHTML=`<img src="${flagUrl(c[0],320)}" alt="" loading="lazy"><span class="code">${c[0].toUpperCase().slice(0,3)}</span><b>${c[1]}</b><small>${s?'🎵 '+s.title:'🏛️ '+c[3]}</small><span class="badge" hidden>🌈</span>`+(s?'<span class="songmark">🎵 song</span>':'');
       b.dataset.pin=pinKeyForCountry(c);
       b.querySelector('img').onerror=()=>b.classList.add('noimg');
       b.onclick=()=>openSong(s?{...s,countryInfo:c,note:'Capital: '+c[3]+' · '+c[2]+'. A traditional song, free for everyone to sing.'}:countryAsSong(c));
@@ -1026,7 +1090,7 @@ function findSongs(){
 const sgrid=document.getElementById('stateGrid');
 STATES.forEach(st=>{
   const b=document.createElement('button'); b.className='flag-card';
-  b.innerHTML=`<img src="${cardSvg(st)}" alt=""><b>${st.name}</b><small class="local">${st.local}</small><small>${st.cap}</small><span class="badge" hidden>🌈</span>`;
+  b.innerHTML=`<img src="${cardSvg(st)}" alt=""><b>${st.name}</b><small class="local">${st.local}</small><small>🏛️ ${st.cap}</small><span class="badge" hidden>🌈</span>`;
   b.dataset.pin='state:'+st.id;
   b.onclick=()=>openSong(stateAsSong(st));
   sgrid.appendChild(b);
@@ -1064,16 +1128,18 @@ function openSong(s){
 }
 function showPlaceInfo(s){
   const box=document.getElementById('placeInfo'); let fact='', chips=[], name='';
-  if(s.state){ const st=s.state; name=st.name; fact=st.fact; chips=[['Capital',st.cap],['Country','India'],['Hello',st.lines[0].text+(st.lines[0].roman?' ('+st.lines[0].roman+')':'')]]; }
+  let capFact='';
+  if(s.state){ const st=s.state; name=st.name; fact=st.fact; capFact=CAP_FACTS[st.id]||''; chips=[['Capital',st.cap],['Country','India'],['Hello',st.lines[0].text+(st.lines[0].roman?' ('+st.lines[0].roman+')':'')]]; }
   else { const c=s.countryInfo||WORLD.find(x=>x[0]===s.code); if(!c){ box.hidden=true; return; }
     name=c[1]; fact=(typeof FACTS!=='undefined'&&FACTS[c[0]])||''; const g=GREET[c[4]]||GREET.en;
     chips=[['Capital',c[3]],['Continent',c[2]],['Hello',g[1]+(g[2]?' ('+g[2]+')':'')+' = '+g[3]]];
     if(s.title&&s.lines&&s.lines[0]&&s.lines[0].notes) chips.push(['Song',s.title]); }
   box.hidden=false;
   box.innerHTML=`<div class="lead"><span class="dot" style="background:var(--accent)"></span><span><b>Did you know?</b> ${esc(fact)}</span></div>
+    ${capFact?`<div class="capfact"><span>🏛️</span><span><b>The capital, ${esc(chips[0][1])}:</b> ${esc(capFact)}</span></div>`:''}
     <div class="chips3">${chips.map(([k,v])=>`<span><b>${k}:</b> ${esc(v)}</span>`).join('')}</div>
     <button class="toggle" onclick="readInfo()">🔊 Read it to me</button>`;
-  box.dataset.say=name+'. '+fact+' The capital is '+chips[0][1]+'.';
+  box.dataset.say=name+'. '+fact+' The capital is '+chips[0][1]+'. '+capFact;
 }
 function readInfo(){ const box=document.getElementById('placeInfo'); if('speechSynthesis' in window) speechSynthesis.cancel(); speak(box.dataset.say||'','en-US'); }
 function renderLyrics(s){
@@ -1708,11 +1774,32 @@ function drawMap(svg,{highlight=null,interactive=true,label=false}={}){
     if(interactive){
       el.setAttribute('tabindex','0');
       const tip=document.getElementById('mapTip');
-      el.addEventListener('pointerenter',()=>{ tip.textContent=st?st.name+' · '+st.cap:p.name; });
-      el.addEventListener('click',()=>{ if(st) openSong(stateAsSong(st)); else sayNow(p.name+', a union territory of India','en-US'); });
+      const ut=!st&&UTS[p.name];
+      el.addEventListener('pointerenter',()=>{ tip.textContent=st?st.name+' · '+st.cap:p.name+(ut?' · '+(ut.short||ut.cap):''); });
+      el.addEventListener('click',()=>{ if(st) openSong(stateAsSong(st)); else { tip.textContent=p.name+(ut?' · capital: '+(ut.short||ut.cap):''); sayNow(p.name+', a union territory of India.'+(ut?' Its capital is '+ut.cap+'.':''),'en-US'); } });
       el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&st) openSong(stateAsSong(st)); });
     }
     svg.appendChild(el);
+  }
+  if(interactive){ // a ⭐ dot for every capital: tap to hear it, names shown with the button above the map
+    const tip=document.getElementById('mapTip');
+    const LEFT={Gandhinagar:1,Mumbai:1,Panaji:1,Thiruvananthapuram:1,Jaipur:1,Chandigarh:1,Bengaluru:1,Daman:1,Kavaratti:1,Srinagar:1,Bhopal:1,Hyderabad:1,Agartala:1,Aizawl:1,Shillong:1,Dispur:1,Gangtok:1,Patna:1,Ranchi:1};
+    const DY={Dispur:-2.5,Shillong:4.5,Kohima:-1,Imphal:3,Aizawl:5,Agartala:1,Itanagar:-2.5,Gangtok:-2.5,Shimla:-1.5,Chandigarh:2.5,Dehradun:3.5,'New Delhi':3.5,Daman:-1,Mumbai:3,Amaravati:3.5,Hyderabad:-1,Puducherry:3.5,Chennai:-1,Ranchi:3,Patna:-2,Kolkata:3.5,Raipur:3,Bhubaneswar:3};
+    capitalList().forEach(cp=>{
+      const [x,y]=px(cp.lon,cp.lat);
+      const dot=document.createElementNS(NS,'circle'); dot.setAttribute('cx',x); dot.setAttribute('cy',y); dot.setAttribute('r',2.1); dot.setAttribute('class','capdot'); svg.appendChild(dot);
+      const t=document.createElementNS(NS,'text'); const left=LEFT[cp.name]; t.setAttribute('x',+x+(left?-3.5:3.5)); t.setAttribute('y',+y+1.8+(DY[cp.name]||0)); if(left) t.setAttribute('text-anchor','end');
+      t.setAttribute('class','capname'); t.textContent=cp.name; if(!capNamesOn) t.setAttribute('hidden',''); svg.appendChild(t);
+      const hit=document.createElementNS(NS,'circle'); hit.setAttribute('cx',x); hit.setAttribute('cy',y); hit.setAttribute('r',6); hit.setAttribute('class','caphit'); hit.setAttribute('tabindex','0');
+      const title=document.createElementNS(NS,'title'); title.textContent=cp.name+', capital of '+listAnd(cp.owners); hit.appendChild(title);
+      const tap=e=>{ e.stopPropagation(); svg.querySelectorAll('.capdot.on').forEach(d=>d.classList.remove('on')); dot.classList.add('on');
+        svg.querySelectorAll('path.st').forEach(pe=>pe.classList.remove('hl'));
+        mapPaths().forEach((mp,i)=>{ if((mp.id&&cp.ids.includes(mp.id))||cp.owners.includes(mp.name)){ const pe=svg.querySelectorAll('path.st')[i]; if(pe) pe.classList.add('hl'); } });
+        tip.textContent='⭐ '+cp.name+' is the capital of '+listAnd(cp.owners);
+        sayNow((cp.say||cp.name)+' is the capital of '+listAnd(cp.owners)+'.','en-US'); };
+      hit.addEventListener('click',tap); hit.addEventListener('keydown',e=>{ if(e.key==='Enter') tap(e); });
+      svg.appendChild(hit);
+    });
   }
   if(highlight&&CAPS[highlight]){
     const [lat,lon]=CAPS[highlight]; const [x,y]=px(lon,lat);
@@ -1729,7 +1816,7 @@ function showMiniMap(st){
   box.innerHTML=`<svg role="img" aria-label="Map showing ${st.name}"></svg><div class="where"><b>${st.name}</b>Capital: <b style="display:inline;font-size:20px">${st.cap}</b><br><span style="color:var(--muted)">${st.local}</span>${fl?`<div class="flagnote"><img src="${cardSvg(st)}" alt=""> <span><b>${fl.name}</b>: ${fl.note}</span></div>`:''}</div>`;
   drawMap(box.querySelector('svg'),{highlight:st.id,interactive:false,label:true});
 }
-try{ drawMap(document.getElementById('indiaMap')); }catch(e){ console.warn('map',e); }
+try{ drawMap(document.getElementById('indiaMap')); if(capNamesOn){ capNamesOn=false; toggleCapNames(); } }catch(e){ console.warn('map',e); }
 
 /* ========= ONE PLANET: trivia, numbers, video, song, NASA photos, weight ========= */
 const PLANET_INFO={
@@ -2157,7 +2244,7 @@ function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
 
 /* version line: shows when this copy of the page was published, so an old cached copy is easy to spot */
-const APP_VERSION='29';
+const APP_VERSION='30';
 try{ const d=new Date(document.lastModified); document.getElementById('verLine').textContent='Music Alley v'+APP_VERSION+' · updated '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){}
 
 /* ========= STARS ========= */
