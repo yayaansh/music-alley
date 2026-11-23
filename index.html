@@ -1055,7 +1055,7 @@ function countryAsSong(c){
   const g=GREET[c[4]]||GREET.en;
   const lines=[{text:g[1],roman:g[2]||null,en:g[3]}];
   return {id:c[0],code:c[0],country:c[1],pinKey:pinKeyForCountry(c),lang:g[0],title:c[1],
-    say:c[1]+'. Capital: '+c[3],note:'Capital: '+c[3]+' · '+c[2]+'. Press Play for a children\'s song from '+c[1]+', or Say hello to hear the greeting.',
+    say:c[1]+'. The capital is '+c[3]+'.',note:'Capital: '+c[3]+' · '+c[2]+'. Press Play for a children\'s song from '+c[1]+', or Say hello to hear the greeting.',
     countryInfo:c,inst:'musicbox',bpm:100,lines};
 }
 (function buildWorld(){
@@ -1097,7 +1097,7 @@ STATES.forEach(st=>{
 });
 function stateAsSong(st){
   return {id:st.id,state:st,pinKey:'state:'+st.id,lang:st.lang,title:st.name,country:st.local+' · capital: '+st.cap,
-    img:cardSvg(st),say:st.name+', India',note:st.fact,inst:'musicbox',bpm:100,lines:st.lines};
+    img:cardSvg(st),say:st.name+'. The capital is '+st.cap+'.',note:st.fact,inst:'musicbox',bpm:100,lines:st.lines};
 }
 let songNow=null, pinKeyNow=null;
 function openSong(s){
@@ -1124,7 +1124,7 @@ function openSong(s){
   document.getElementById('realBtn').textContent=sings?'▶ Play the song':'▶ Play a song from '+place;
   s.dubbed=null; renderLyrics(s);
   setDub(false);
-  sayNow(s.say||(s.country+'. '+s.title.replace(/\(.*\)/,'')),'en-US');
+  sayNow(s.say||(s.countryInfo?s.countryInfo[1]+'. The capital is '+s.countryInfo[3]+'. The song is '+s.title.replace(/\(.*\)/,'').trim()+'.':s.country+'. '+s.title.replace(/\(.*\)/,'')),'en-US');
 }
 function showPlaceInfo(s){
   const box=document.getElementById('placeInfo'); let fact='', chips=[], name='';
@@ -2244,7 +2244,7 @@ function stopEverything(){ if(typeof karaokeStop==='function'&&K.on) karaokeStop
 setInterval(()=>{ const busy=!!current||(('speechSynthesis' in window)&&speechSynthesis.speaking)||!!document.querySelector('.player iframe,.player audio'); document.getElementById('stopAll').hidden=!busy; },500);
 
 /* version line: shows when this copy of the page was published, so an old cached copy is easy to spot */
-const APP_VERSION='30';
+const APP_VERSION='31';
 try{ const d=new Date(document.lastModified); document.getElementById('verLine').textContent='Music Alley v'+APP_VERSION+' · updated '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){}
 
 /* ========= STARS ========= */
